@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .title{font:700 34px Arial,sans-serif;fill:#0B1F33}.subtitle{font:400 17px Arial,sans-serif;fill:#526579}
+      .layer{font:700 15px Arial,sans-serif;fill:#0B1F33;letter-spacing:.7px}.boxTitle{font:700 16px Arial,sans-serif;fill:#0B1F33}
+      .boxText{font:400 13px Arial,sans-serif;fill:#425466}.small{font:400 12px Arial,sans-serif;fill:#526579}
+      .whiteTitle{font:700 17px Arial,sans-serif;fill:white}.whiteText{font:400 13px Arial,sans-serif;fill:#EAF3F7}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#6B7C8F"/></marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0B1F33" flood-opacity="0.14"/></filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="#F7F9FC"/>
+  <text x="70" y="58" class="title">Reference Logical Architecture — Enterprise Lightweight Workflow Platform</text>
+  <text x="70" y="88" class="subtitle">Citizen-friendly workflow product on top of Temporal durable orchestration, governed enterprise capabilities and scalable worker pools</text>
+
+  <!-- Experience layer -->
+  <text x="70" y="132" class="layer">EXPERIENCE &amp; AUTHORING</text>
+  <rect x="70" y="148" rx="14" ry="14" width="1460" height="100" fill="#EAF5F6" stroke="#B8DDE1"/>
+  <g filter="url(#shadow)">
+    <rect x="105" y="170" rx="10" width="300" height="56" fill="white"/><text x="125" y="195" class="boxTitle">Visual Process Designer</text><text x="125" y="215" class="small">BPMN-like UI → governed JSON/YAML DSL</text>
+    <rect x="445" y="170" rx="10" width="300" height="56" fill="white"/><text x="465" y="195" class="boxTitle">Human Task Inbox &amp; Forms</text><text x="465" y="215" class="small">Assignments, approvals, SLA, evidence</text>
+    <rect x="785" y="170" rx="10" width="300" height="56" fill="white"/><text x="805" y="195" class="boxTitle">Operations / Admin Console</text><text x="805" y="215" class="small">Search, replay, retry, pause, support</text>
+    <rect x="1125" y="170" rx="10" width="360" height="56" fill="white"/><text x="1145" y="195" class="boxTitle">API / Event Consumers</text><text x="1145" y="215" class="small">Business apps, portals, batch &amp; event starters</text>
+  </g>
+
+  <!-- Control plane -->
+  <text x="70" y="288" class="layer">FRAMEWORK CONTROL PLANE</text>
+  <rect x="70" y="304" rx="14" width="1460" height="174" fill="#EEF2FA" stroke="#C9D4E8"/>
+  <g filter="url(#shadow)">
+    <rect x="105" y="330" rx="10" width="250" height="116" fill="white"/><text x="125" y="358" class="boxTitle">Workflow Management API</text><text x="125" y="382" class="boxText">Start • Query • Signal</text><text x="125" y="402" class="boxText">Cancel • Schedule • Search</text><text x="125" y="422" class="boxText">Tenant / domain routing</text>
+    <rect x="385" y="330" rx="10" width="250" height="116" fill="white"/><text x="405" y="358" class="boxTitle">Definition Registry</text><text x="405" y="382" class="boxText">Schema validation</text><text x="405" y="402" class="boxText">Version / approval / promotion</text><text x="405" y="422" class="boxText">Dependency inventory</text>
+    <rect x="665" y="330" rx="10" width="250" height="116" fill="white"/><text x="685" y="358" class="boxTitle">Human Task Service</text><text x="685" y="382" class="boxText">Work queues &amp; assignment</text><text x="685" y="402" class="boxText">Forms / SLA / escalation</text><text x="685" y="422" class="boxText">Signals back to workflows</text>
+    <rect x="945" y="330" rx="10" width="250" height="116" fill="white"/><text x="965" y="358" class="boxTitle">Rules &amp; Policy Services</text><text x="965" y="382" class="boxText">Decision tables / guardrails</text><text x="965" y="402" class="boxText">Input / output validation</text><text x="965" y="422" class="boxText">Rate &amp; entitlement policy</text>
+    <rect x="1225" y="330" rx="10" width="260" height="116" fill="white"/><text x="1245" y="358" class="boxTitle">Identity &amp; Event Intake</text><text x="1245" y="382" class="boxText">OIDC / RBAC / service identity</text><text x="1245" y="402" class="boxText">Schedules / webhooks / events</text><text x="1245" y="422" class="boxText">Secrets references only</text>
+  </g>
+
+  <!-- Execution plane -->
+  <text x="70" y="518" class="layer">DURABLE EXECUTION PLANE</text>
+  <rect x="70" y="534" rx="14" width="1120" height="220" fill="#EAF2FB" stroke="#BED1E9"/>
+  <g filter="url(#shadow)">
+    <rect x="105" y="562" rx="14" width="390" height="160" fill="#123A63"/>
+    <text x="130" y="596" class="whiteTitle">Temporal Service Cluster</text>
+    <text x="130" y="624" class="whiteText">Frontend • History • Matching • System Worker</text>
+    <text x="130" y="648" class="whiteText">Durable state, timers, retries, task dispatch</text>
+    <text x="130" y="672" class="whiteText">Namespaces • Event History • Visibility</text>
+    <text x="130" y="696" class="whiteText">Self-hosted on Kubernetes or managed service</text>
+
+    <rect x="535" y="562" rx="12" width="195" height="72" fill="white"/><text x="555" y="590" class="boxTitle">Process Workers</text><text x="555" y="613" class="small">DSL interpretation &amp; orchestration</text>
+    <rect x="755" y="562" rx="12" width="195" height="72" fill="white"/><text x="775" y="590" class="boxTitle">Integration Workers</text><text x="775" y="613" class="small">I/O heavy enterprise calls</text>
+    <rect x="975" y="562" rx="12" width="180" height="72" fill="white"/><text x="995" y="590" class="boxTitle">Specialized Workers</text><text x="995" y="613" class="small">Batch • files • AI • legacy</text>
+
+    <rect x="535" y="654" rx="12" width="620" height="68" fill="#F9FBFD" stroke="#D5DFEA"/>
+    <text x="555" y="680" class="boxTitle">Task Queue Segmentation</text>
+    <text x="555" y="703" class="small">By domain, criticality, workload class and downstream dependency → independent scale &amp; blast-radius control</text>
+  </g>
+
+  <!-- cross-cutting -->
+  <rect x="1220" y="534" rx="14" width="310" height="220" fill="#FFF7E8" stroke="#E8CE96"/>
+  <text x="1245" y="568" class="boxTitle">Cross-cutting Platform Services</text>
+  <text x="1245" y="600" class="boxText">Observability: metrics • logs • traces</text>
+  <text x="1245" y="626" class="boxText">Audit / evidence export / retention</text>
+  <text x="1245" y="652" class="boxText">Secrets &amp; configuration management</text>
+  <text x="1245" y="678" class="boxText">Encryption / payload codecs / redaction</text>
+  <text x="1245" y="704" class="boxText">CI/CD • worker versioning • policy gates</text>
+  <text x="1245" y="730" class="boxText">SLOs • capacity • chargeback/showback</text>
+
+  <!-- enterprise capabilities -->
+  <text x="70" y="798" class="layer">ENTERPRISE CAPABILITY &amp; DATA LAYER</text>
+  <g filter="url(#shadow)">
+    <rect x="70" y="814" rx="10" width="205" height="58" fill="white"/><text x="90" y="840" class="boxTitle">REST / gRPC APIs</text><text x="90" y="860" class="small">Reusable enterprise services</text>
+    <rect x="295" y="814" rx="10" width="205" height="58" fill="white"/><text x="315" y="840" class="boxTitle">Events / Kafka</text><text x="315" y="860" class="small">Triggers &amp; async integration</text>
+    <rect x="520" y="814" rx="10" width="205" height="58" fill="white"/><text x="540" y="840" class="boxTitle">Data Services</text><text x="540" y="860" class="small">DBs • APIs • reference data</text>
+    <rect x="745" y="814" rx="10" width="205" height="58" fill="white"/><text x="765" y="840" class="boxTitle">Content / Files</text><text x="765" y="860" class="small">Shared drives • document stores</text>
+    <rect x="970" y="814" rx="10" width="205" height="58" fill="white"/><text x="990" y="840" class="boxTitle">Notifications</text><text x="990" y="860" class="small">Email • enterprise messaging</text>
+    <rect x="1195" y="814" rx="10" width="335" height="58" fill="white"/><text x="1215" y="840" class="boxTitle">Enterprise Applications</text><text x="1215" y="860" class="small">Core platforms, mainframe, operations systems</text>
+  </g>
+
+  <!-- arrows -->
+  <line x1="800" y1="248" x2="800" y2="298" stroke="#6B7C8F" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="800" y1="478" x2="800" y2="528" stroke="#6B7C8F" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="495" y1="642" x2="525" y2="642" stroke="#6B7C8F" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="845" y1="754" x2="845" y2="806" stroke="#6B7C8F" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- persistence footnote -->
+  <text x="105" y="748" class="small">Temporal persistence: PostgreSQL / MySQL / Cassandra; visibility via SQL or Elasticsearch as appropriate. Framework metadata can use enterprise-standard relational storage.</text>
+</svg>
