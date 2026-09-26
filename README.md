@@ -42,6 +42,11 @@ The Temporal Web UI is available at `http://localhost:8233` when using the defau
 
 ## Setup
 
+For the reproducible development environment and baseline checks, use
+`uv sync --locked` and follow [development tooling](docs/development/tooling.md).
+The pip instructions below install the generated runtime-only requirements;
+development tools and tests are installed through uv.
+
 ### macOS/Linux
 
 ```bash

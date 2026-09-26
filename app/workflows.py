@@ -109,7 +109,9 @@ class LightweightProcess:
         retry_policy = RetryPolicy(
             maximum_attempts=int(retry_cfg.get("maximum_attempts", 3)),
             initial_interval=timedelta(seconds=float(retry_cfg.get("initial_interval_seconds", 1))),
-            maximum_interval=timedelta(seconds=float(retry_cfg.get("maximum_interval_seconds", 10))),
+            maximum_interval=timedelta(
+                seconds=float(retry_cfg.get("maximum_interval_seconds", 10))
+            ),
             backoff_coefficient=float(retry_cfg.get("backoff_coefficient", 2.0)),
         )
 

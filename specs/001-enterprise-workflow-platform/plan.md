@@ -103,6 +103,20 @@ docs/
 
 ## Delivery Phases
 
+**Execution numbering**: Implementation tracks the phase numbers and task IDs in
+[`tasks.md`](tasks.md). Its **Phase 1: Setup (T001–T006)** corresponds to **Phase 0**
+in the delivery roadmap below. The roadmap's **Phase 1: Contracts and runtime
+foundation** spans task Phase 2 and the runtime portion of task Phase 4. These
+roadmap labels are retained as architectural milestones, not task execution IDs.
+
+**Current increment**: Setup T001–T006. Python 3.11+ remains the target; uv with a
+committed lockfile provides dependency management, Hatchling provides packaging,
+Ruff provides lint/format checks, mypy provides type checks, and pytest with
+pytest-asyncio provides baseline tests against a local Temporal CLI server.
+Temporal SDK 1.33.0 is pinned to the existing development baseline. The initial
+Docker command reports packaging as deferred to T056. No API, persistence,
+identity, cloud hosting, or production NFR selection is made by this setup work.
+
 1. **Phase 0: Assessment and baseline**. Document current-to-target mapping, decide unresolved platform choices, establish packaging, and add behavior-preserving tests.
 2. **Phase 1: Contracts and runtime foundation**. Add typed definitions, schema/graph validation, deterministic interpreter boundaries, runtime worker, and Temporal tests.
 3. **Phase 2: Control plane**. Add registry, lifecycle, API, execution metadata, OpenAPI, idempotency, schedules, and event starters.

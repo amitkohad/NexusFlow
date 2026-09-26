@@ -15,12 +15,20 @@
 
 **Purpose**: Establish project conventions and record the current system before behavior changes.
 
-- [ ] T001 [P] Create `docs/refactoring-assessment.md` mapping current files and behavior to target services.
-- [ ] T002 [P] Add `pyproject.toml`, dependency pinning/lock strategy, formatter, linter, type-checker, and test configuration.
-- [ ] T003 [P] Add `.env.example`, configuration conventions, and secret-handling rules under `docs/development/`.
-- [ ] T004 [P] Add initial `Makefile` targets for `dev`, `test`, `lint`, `build`, and `docker-build`.
-- [ ] T005 [P] Add test directories for `tests/unit`, `tests/integration`, `tests/contract`, and `tests/e2e`.
-- [ ] T006 Add baseline tests for the existing `LightweightProcess` behavior in `tests/integration/test_lightweight_process.py`.
+- [x] T001 [P] Create `docs/refactoring-assessment.md` mapping current files and behavior to target services.
+- [x] T002 [P] Add `pyproject.toml`, dependency pinning/lock strategy, formatter, linter, type-checker, and test configuration.
+- [x] T003 [P] Add `.env.example`, configuration conventions, and secret-handling rules under `docs/development/`.
+- [x] T004 [P] Add initial `Makefile` targets for `dev`, `test`, `lint`, `build`, and `docker-build`.
+- [x] T005 [P] Add test directories for `tests/unit`, `tests/integration`, `tests/contract`, and `tests/e2e`.
+- [x] T006 Add baseline tests for the existing `LightweightProcess` behavior in `tests/integration/test_lightweight_process.py`.
+
+**Setup verification (2026-09-26)**: Locked dependency sync/check passed on Python
+3.12.2/Windows with Temporal SDK 1.33.0 and CLI 1.9.1. The cross-platform runner
+passed 9 tests (3 validator cases and 6 real Temporal scenarios), Ruff lint/format,
+mypy, and wheel/source builds. Application edits are formatting only. GNU Make
+is unavailable on this host; equivalent runner commands were executed directly.
+The initial `docker-build` target explicitly exits with a deferred-packaging
+message; Dockerfiles and image validation remain T056/T065.
 
 ## Phase 2: Foundational Contracts
 

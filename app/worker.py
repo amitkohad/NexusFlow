@@ -9,7 +9,6 @@ from temporalio.worker import Worker
 from app.activities import execute_capability
 from app.workflows import LightweightProcess
 
-
 TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "lightweight-workflows")
 TEMPORAL_ADDRESS = os.getenv("TEMPORAL_ADDRESS", "localhost:7233")
 
