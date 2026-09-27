@@ -1,6 +1,7 @@
 # Test suites
 
-- `unit/` characterizes isolated prototype validation and will hold domain-contract tests.
+- `unit/` tests foundational domain contracts, policies, definition/schema/graph validation,
+  pure workflow semantics, configuration, and error classification, plus the prototype validator.
 - `integration/` runs the current workflow and real Activities on an isolated local Temporal server.
 - `contract/` is reserved for the versioned API and worker boundaries introduced in later phases.
 - `e2e/` is reserved for complete platform acceptance scenarios introduced in later phases.

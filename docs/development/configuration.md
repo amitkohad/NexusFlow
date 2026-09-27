@@ -1,8 +1,8 @@
 # Development configuration and secrets
 
 This document covers the existing prototype and Phase 1 setup. Shared typed
-configuration and error contracts are a Phase 2 task; service-specific cloud,
-identity, database, and policy configuration follows the relevant later phase.
+configuration and error contracts were added in Phase 2; service-specific cloud,
+identity, database, and policy enforcement follows the relevant later phase.
 
 ## Current worker settings
 
@@ -99,6 +99,38 @@ amount and a deliberately transient risk-check failure.
 These are repository conventions, not implemented authentication, redaction,
 encryption, secret-provider integration, or automated secret scanning.
 
+## Phase 2 shared settings
+
+`nexusflow_common.config.load_settings()` explicitly loads supported process
+environment variables into `WorkerSettings`. Pass a mapping to validate a supplied
+configuration without reading the process environment. Importing this module does
+not read settings or connect to Temporal. The prototype worker still reads only
+its original two variables; integration of shared settings belongs to Phase 4.
+
+| Variable | Shared default | Constraint |
+| --- | --- | --- |
+| `NEXUSFLOW_ENVIRONMENT` | `local` | `local`, `dev`, `test`, or `prod` |
+| `TEMPORAL_ADDRESS` | `localhost:7233` | Host/port, no URL scheme or embedded credentials |
+| `TEMPORAL_NAMESPACE` | `default` | Nonblank namespace |
+| `TEMPORAL_TASK_QUEUE` | `workflow-orchestration-tq` | Nonblank owned queue; prototype default remains `lightweight-workflows` |
+| `TEMPORAL_TLS` | `false` | `true`, `false`, `1`, or `0`; required true for `prod` |
+| `NEXUSFLOW_MAX_DEFINITION_STEPS` | `500` | Integer between 1 and 10,000 |
+| `NEXUSFLOW_MAX_PAYLOAD_BYTES` | `1048576` | Integer between 1,024 and 16,777,216 |
+| `NEXUSFLOW_SHUTDOWN_GRACE_SECONDS` | `30` | Positive integer |
+
+These limits are development guardrails. Payload budgets and graceful shutdown
+are not applied to the prototype by defining this model. Future services must
+pass the validated settings to their enforcement boundaries. TLS validation does
+not implement authentication or credential resolution.
+
+`nexusflow_common.errors` classifies explicitly declared validation, business,
+authorization, configuration, technical, timeout, and cancellation failures.
+Business/validation/authorization failures are non-retryable. Unknown exceptions
+do not automatically become retryable; adapters must declare retry intent. The
+classification output omits raw unclassified exception text and Pydantic input
+values. Applying these policies to Temporal Activities belongs to the worker
+and resilience phases.
+
 ## Decisions deferred beyond setup
 
 | Decision | Implementation dependency |
@@ -111,7 +143,8 @@ encryption, secret-provider integration, or automated secret scanning.
 | SLOs, capacity, RTO/RPO, payload/history limits, audit retention | Production sizing, operations, and resilience validation. |
 | Alfresco inventory and compatibility scope | Migration planning and representative parity tests. |
 
-These choices do not block Phase 1 baseline documentation and tooling. Record
-selected choices and their tradeoffs in the implementation plan and ADRs
-before dependent services are built. Existing local defaults do not imply a
-production hosting or security decision.
+Implementation choices are recorded in the plan and
+[ADRs](../adr/0002-control-plane-and-identity.md). The table identifies the later
+service dependencies; enterprise deployment values and production operating
+targets still need their owners' inputs. Local defaults do not establish
+production readiness.

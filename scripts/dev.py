@@ -27,6 +27,7 @@ def main() -> int:
             [python, "-m", "ruff", "check", "."],
             [python, "-m", "ruff", "format", "--check", "."],
             [python, "-m", "mypy"],
+            [python, "scripts/generate_definition_schema.py", "--check"],
         ],
         "format": [[python, "-m", "ruff", "format", "."]],
         "build": [[python, "-m", "build", "--no-isolation"]],
