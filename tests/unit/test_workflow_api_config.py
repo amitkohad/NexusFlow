@@ -14,6 +14,7 @@ import pytest
 from contracts import DefinitionDocument
 from fastapi import FastAPI
 from nexusflow_common.errors import ConfigurationError
+from temporalio.contrib.pydantic import pydantic_data_converter
 from workflow_api import config, main
 from workflow_api import repository as repository_module
 from workflow_api.api import create_app
@@ -48,7 +49,8 @@ def test_explicit_settings_mapping_does_not_read_or_mutate_process_environment(
     assert settings.local_token is None
     assert settings.temporal_address == "temporal.test:7233"
     assert settings.temporal_namespace == "finance"
-    assert settings.temporal_task_queue == "lightweight-workflows"
+    assert settings.temporal_task_queue == "workflow-orchestration-tq"
+    assert settings.runtime_profile == "governed"
     assert settings.max_definition_steps == 250
     assert settings.local_actor == "verified-user"
     assert settings.local_tenant == "tenant-one"
@@ -182,7 +184,9 @@ async def test_local_factory_defaults_to_denied_identity_and_connects_only_durin
     backend = cast(ConnectedBackend, fixture.app.state.service.backend)
     assert backend.delegate is None
     async with fixture.app.router.lifespan_context(fixture.app):
-        fixture.connect.assert_awaited_once_with("localhost:7233", namespace="default", tls=False)
+        fixture.connect.assert_awaited_once_with(
+            "localhost:7233", namespace="default", tls=False, data_converter=pydantic_data_converter
+        )
         assert backend.delegate is not None
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=fixture.app), base_url="http://workflow-api.test"

@@ -49,7 +49,9 @@ def temporal_client() -> Any:
 
 @pytest.fixture
 def backend(temporal_client: Any) -> TemporalBackend:
-    return TemporalBackend(cast(Client, temporal_client), task_queue="owned-queue")
+    return TemporalBackend(
+        cast(Client, temporal_client), task_queue="owned-queue", runtime_profile="legacy"
+    )
 
 
 @pytest.fixture

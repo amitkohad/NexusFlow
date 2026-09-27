@@ -20,6 +20,7 @@ from contracts import (
     DefinitionStatus,
     ExecutionState,
     JsonObject,
+    RuntimeProfile,
     WorkflowDefinition,
 )
 from contracts.api import RegisterDefinitionRequest
@@ -80,6 +81,8 @@ class ExecutionRecord:
     started_at: datetime
     updated_at: datetime
     state: ExecutionState = ExecutionState.CREATED
+    runtime_profile: RuntimeProfile = "legacy"
+    runtime_task_queue: str = "lightweight-workflows"
     run_id: str | None = None
     current_step: str | None = None
     completed_at: datetime | None = None
@@ -128,6 +131,8 @@ def _definition(row: DefinitionRow) -> WorkflowDefinition:
 
 
 def _execution(row: ExecutionRow) -> ExecutionRecord:
+    if row.runtime_profile not in {"legacy", "governed"}:
+        raise ApiError(503, "runtime_binding_invalid", "Execution runtime binding is unavailable")
     return ExecutionRecord(
         workflow_id=row.workflow_id,
         scope=Scope(row.tenant, row.business_domain, row.application),
@@ -143,6 +148,8 @@ def _execution(row: ExecutionRow) -> ExecutionRecord:
         request_fingerprint=row.request_fingerprint,
         created_by=row.created_by,
         state=ExecutionState(row.state),
+        runtime_profile="governed" if row.runtime_profile == "governed" else "legacy",
+        runtime_task_queue=row.runtime_task_queue,
         run_id=row.run_id,
         current_step=row.current_step,
         started_at=_required_utc(row.started_at),
@@ -207,7 +214,13 @@ class WorkflowRepository:
         try:
             with self.engine.connect() as connection:
                 present = set(inspect(connection).get_table_names())
-                return set(Base.metadata.tables).issubset(present)
+                inspector = inspect(connection)
+                return set(Base.metadata.tables).issubset(present) and all(
+                    set(table.columns.keys()).issubset(
+                        {column["name"] for column in inspector.get_columns(name)}
+                    )
+                    for name, table in Base.metadata.tables.items()
+                )
         except SQLAlchemyError:
             return False
 
@@ -409,6 +422,8 @@ class WorkflowRepository:
             **record.scope.as_dict(),
             workflow_id=record.workflow_id,
             run_id=record.run_id,
+            runtime_profile=record.runtime_profile,
+            runtime_task_queue=record.runtime_task_queue,
             workflow_type=record.workflow_type,
             definition_id=record.definition_id,
             definition_version=record.definition_version,

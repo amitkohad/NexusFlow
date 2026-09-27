@@ -66,9 +66,21 @@ from .policies import (
     RetryPolicyModel,
     TimeoutPolicyModel,
 )
+from .runtime import (
+    ActivityRequest,
+    ActivityResponse,
+    RuntimeContext,
+    RuntimeProfile,
+    RuntimeStartRequest,
+)
 
 __all__ = [
     "ActivityContract",
+    "ActivityRequest",
+    "ActivityResponse",
+    "RuntimeContext",
+    "RuntimeProfile",
+    "RuntimeStartRequest",
     "ActivityStep",
     "ApiBusinessContext",
     "ApprovalStep",

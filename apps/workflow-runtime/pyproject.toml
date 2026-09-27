@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nexusflow-workflow-runtime"
+version = "0.1.0"
+description = "NexusFlow versioned orchestration worker"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "nexusflow-contracts==0.1.0", "nexusflow-common==0.1.0",
+    "nexusflow-workflow-sdk==0.1.0", "nexusflow-workflows==0.1.0",
+    "temporalio==1.33.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/workflow_runtime"]
+
+[project.scripts]
+nexusflow-workflow-runtime = "workflow_runtime.__main__:main"

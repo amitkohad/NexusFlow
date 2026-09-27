@@ -1,10 +1,11 @@
-# Temporal Lightweight Workflow Prototype
+# NexusFlow workflow platform
 
-Phase 3 adds a governed workflow API with persistent definition approval and
+Phase 4 adds a dedicated orchestration runtime and five independently packaged
+capability workers. The governed API provides persistent definition approval and
 promotion, idempotent starts, business status/history, and scoped authorization.
-Follow the [API walkthrough](docs/development/workflow-api.md) or read the
-[service README](apps/workflow-api/README.md). The CLI prototype below remains
-available while Phase 4 extracts the runtime and independent workers.
+Follow the [runtime and workers walkthrough](docs/development/runtime-workers.md)
+and [API walkthrough](docs/development/workflow-api.md). The CLI prototype below
+remains available for legacy demonstrations and existing histories.
 
 A small working prototype for replacing Alfresco Process Services-style lightweight workflows with an in-house framework built on Temporal.
 
@@ -215,7 +216,7 @@ See [development tooling](docs/development/tooling.md),
 [foundation decisions](docs/adr/0001-foundational-contracts.md). The prototype
 worker retains its original execution path until the runtime extraction phase.
 
-1. Extract the dedicated runtime and independent capability workers (Phase 4).
+1. Implement persistent human-task management and its policies (Phase 5).
 2. Extend the FastAPI control plane with later task, governance and operational policies.
 3. Add a human-task service and web inbox so users never need Temporal CLI.
 4. Replace the mock capability dispatcher with a plugin/adapter SDK for REST, gRPC, Kafka, files, databases, notifications, and enterprise APIs.

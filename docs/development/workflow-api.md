@@ -1,16 +1,17 @@
-# Phase 3 local workflow API
+# Local workflow API
 
 The API can register, approve, and promote an immutable definition, start it with
 an idempotency key, and read business status/history. This increment uses the
-existing worker and mock capabilities. Authentication and runtime connectivity
+dedicated runtime and independent mock capability workers. Authentication and runtime connectivity
 are explicit; no module import creates a database or connects to Temporal.
 
 ## Start local services
 
 Install dependencies with `uv sync --locked`. Start `temporal server start-dev`
-in one terminal and `uv run --locked python -m app.worker` in another. Both use
-the existing `lightweight-workflows` queue. The local worker uses the default
-Temporal namespace and plaintext frontend; use these defaults for this walkthrough.
+and the six processes in the [runtime/worker walkthrough](runtime-workers.md).
+API and runtime default to `workflow-orchestration-tq`; capability workers own
+their individual queues. Clear an inherited legacy `TEMPORAL_TASK_QUEUE` in the
+API shell before using these defaults.
 
 In an API terminal, set the configuration and migrate the local database. These
 PowerShell commands generate a fresh local bearer token without printing it:
@@ -18,6 +19,7 @@ PowerShell commands generate a fresh local bearer token without printing it:
 ```powershell
 $env:NEXUSFLOW_DATABASE_URL = "sqlite:///nexusflow.db"
 $env:NEXUSFLOW_ENVIRONMENT = "local"
+$env:NEXUSFLOW_RUNTIME_PROFILE = "governed"
 $env:NEXUSFLOW_API_TOKEN = uv run --locked python -c "import secrets; print(secrets.token_urlsafe(32))"
 uv run --locked python -m workflow_api.manage upgrade
 ```
@@ -91,9 +93,10 @@ approver. Full task assignment and duplicate completion policies remain Phase 5.
 | `NEXUSFLOW_API_TENANT` | `demo` |
 | `NEXUSFLOW_API_DOMAIN` | `customer-services` |
 | `NEXUSFLOW_API_APPLICATION` | `adjustments` |
-| `TEMPORAL_TASK_QUEUE` | API defaults to `lightweight-workflows` until Phase 4 |
+| `NEXUSFLOW_RUNTIME_PROFILE` | `governed`; explicit `legacy` for the prototype |
+| `TEMPORAL_TASK_QUEUE` | API defaults to `workflow-orchestration-tq`; legacy profile defaults to `lightweight-workflows` |
 | `NEXUSFLOW_MAX_PAYLOAD_BYTES` | Shared limit, applied to streamed HTTP bodies; default 1 MiB |
-| `NEXUSFLOW_MAX_DEFINITION_STEPS` | Shared limit, applied during registration; default 500 |
+| `NEXUSFLOW_MAX_DEFINITION_STEPS` | Registration limit, default/v1 maximum 500; may be lowered |
 
 Other Temporal settings come from the shared [configuration](configuration.md).
 The local factory supports only local/test. A deployment factory must inject its

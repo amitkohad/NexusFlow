@@ -19,6 +19,7 @@ from contracts import (
     ProblemDetails,
     PromoteDefinitionRequest,
     RegisterDefinitionRequest,
+    RuntimeProfile,
     SignalResponse,
     SignalWorkflowRequest,
     StartWorkflowRequest,
@@ -74,6 +75,8 @@ def create_app(
     environment: str = "local",
     max_request_bytes: int = 1024 * 1024,
     max_definition_steps: int = 500,
+    runtime_profile: RuntimeProfile = "governed",
+    runtime_task_queue: str | None = None,
     lifespan: Lifespan | None = None,
 ) -> FastAPI:
     if environment not in {"local", "dev", "test", "prod"}:
@@ -81,7 +84,18 @@ def create_app(
     if environment not in {"local", "test"} and isinstance(authenticator, StaticTokenAuthenticator):
         raise ValueError("Static token authentication is limited to local/test environments")
     provider = authenticator if authenticator is not None else DenyAuthenticator()
-    service = WorkflowService(repository, backend, environment, max_definition_steps)
+    if runtime_profile not in {"governed", "legacy"}:
+        raise ValueError("Unsupported runtime profile")
+    if runtime_profile == "governed" and not 1 <= max_definition_steps <= 500:
+        raise ValueError("Version 1 runtime supports at most 500 steps")
+    service = WorkflowService(
+        repository,
+        backend,
+        environment,
+        max_definition_steps,
+        runtime_profile,
+        runtime_task_queue or getattr(backend, "task_queue", None),
+    )
     bearer = HTTPBearer(auto_error=False)
     problems: dict[int | str, dict[str, Any]] = {
         status: {

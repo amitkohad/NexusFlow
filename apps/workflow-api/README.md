@@ -7,8 +7,10 @@ events. SQLite is available for local development and tests.
 
 The HTTP interface exposes business identifiers, states, definition versions, and
 audit links. It does not require client access to Temporal. The API submits the
-existing `LightweightProcess` by its registered name; it never imports a worker.
-Phase 4 will extract the interpreter and capability workers.
+versioned `GovernedWorkflowV1` by its registered name; it never imports a worker.
+Phase 4 routes capabilities to independently packaged workers. Explicit
+`NEXUSFLOW_RUNTIME_PROFILE=legacy` retains prototype starts. Runtime profile and
+queue are pinned per reservation for rollout-safe retries.
 
 Follow the [local walkthrough](../../docs/development/workflow-api.md) to migrate
 the database, start the service, register/approve/promote a definition, and start

@@ -1,171 +1,191 @@
 # Implementation Plan: Enterprise Workflow Platform
 
-**Implementation Branch**: `codex/phase-3-governed-workflow-api` (from `feature/develop`) | **Date**: 2026-09-27 | **Spec**: [spec.md](spec.md)
+**Working Branch**: `codex/phase-4-runtime-independent-workers` (from `feature/develop`) | **Revised**: 2026-09-27 | **Spec**: [spec.md](spec.md)
+
+## Status and scope
+
+Phases 1–4 (T001–T031) are implemented under the original capability-service architecture. Phase 4 runs shared `GovernedWorkflowV1` orchestration and five separately packaged capability workers. Its 601-test verification remains evidence for that implementation, not for the revised topology.
+
+The accepted target makes each business workflow package the unit of build, release, deployment, and capacity ownership. This is a documentation-only revision. Package manifests, a generic executor executable, release-aware routing, containers, and autoscaling are not implemented. [ADR 0006](../../docs/adr/0006-workflow-packages-and-executor-pools.md) supersedes ADR 0005's target ownership while preserving existing code and histories. New **Phase 4A, T078–T090**, bridges completed Phase 4 to the new target before Phase 5. Existing task IDs and completion evidence remain unchanged.
 
 ## Summary
 
-Transform the single-process Temporal prototype into a governed platform while preserving the sample workflow. The implementation will introduce typed definition contracts, a registry and API control plane, a dedicated workflow-runtime worker, independent capability workers, a human-task service, enterprise audit/observability/security boundaries, and GKE/GCP delivery artifacts. Temporal remains the durable execution engine and is hidden behind the platform API.
+Build one immutable workflow package containing its exact governed definition revision or Workflow code, runtime dependency, all dependent executable Activity implementations, typed contracts, registration manifest, and locked dependencies. The embedded content manifest has a canonical hash; a separate immutable release descriptor records that hash and the final artifact digest after build, avoiding self-referential hashing. Phase 4A verifies local artifacts; Phase 9 adds the OCI image digest without changing their provenance. Generic executors load this installed package at startup and register explicit Workflow and Activity handlers. The default pool runs both handler types. Optional role pools use the same image/build where resources, permissions, or scaling warrant isolation.
 
-## Technical Context
+The API, registry, human-task service, business audit/persistence, and Temporal remain shared platform services. Package-local Activities may call these services; their servers/databases are not embedded in packages. Reusable Activity code is a pinned library dependency. Complete packages do not require separately deployed Phase 4 capability workers to supply their executable handlers.
 
-**Language/Version**: Python 3.11+
+## Technical context
 
-**Primary Dependencies**: Temporal Python SDK 1.33.0, Pydantic 2, FastAPI/OpenAPI, SQLAlchemy 2/Alembic/psycopg/PostgreSQL, Uvicorn, pytest, Ruff and mypy; jsonschema validates generated schema in development. OpenTelemetry remains a later increment. Exact versions are pinned in `uv.lock`.
+| Area | Direction |
+| --- | --- |
+| Language | Python 3.11+; current verification uses Python 3.12 |
+| Dependencies | Temporal Python SDK 1.33.0, Pydantic 2, FastAPI, SQLAlchemy/Alembic/psycopg, pytest, Ruff, mypy; current versions remain locked in `uv.lock` |
+| Packaging | Trusted installed manifest and locked dependency closure; immutable per-package image in Phase 9 |
+| Business persistence | Separate PostgreSQL `nexusflow` for definitions, releases, reservations, tasks and audit; API repositories already exist |
+| Temporal persistence | Self-hosted Temporal/GKE with external Cloud SQL `temporal` and `temporal_visibility`; production infrastructure is planned |
+| Environments | Separate Temporal namespaces; package/pool queues and deployment configuration within each environment |
+| Delivery | Versioned worker pools, reusable templates, Temporal Worker Controller, immutable promotion through environments |
+| Capacity | Replicas and per-process task slots are distinct; pickup latency, backlog, slots, resources and downstream limits guide sizing |
+| Verification | Manifest/closure, unit, contract, real Temporal, replay, migration, multi-replica, image, Helm/controller, Terraform and CI checks |
 
-**Storage**: Temporal persistence is planned in external Cloud SQL PostgreSQL databases `temporal` and `temporal_visibility`. Phase 3 implements PostgreSQL control-plane repositories and Alembic migrations for a separately managed business database; local/test SQLite is supported. Cloud SQL provisioning and human-task persistence remain later phases.
+The current SDK meets Temporal's published Python minimum for modern Worker Versioning. Production Server/CLI/UI/Worker Controller versions must be selected and verified together before infrastructure deployment. Local CLI compatibility does not establish production compatibility. This revision changes no dependency or application code.
 
-**Testing**: pytest, Temporal test facilities/local Temporal environment, contract tests, integration tests, E2E tests, Helm lint/template, Terraform fmt/validate, YAML and secret scans
+## Constitution check
 
-**Target Platform**: Linux containers on GKE; local development uses a local Temporal environment
+- Temporal substrate: retained. Temporal owns durability, retries, timers, history and matching; no custom task scheduler/dispatcher.
+- Governed contracts: retained and extended with package manifests, releases and executor pools.
+- Package ownership: constitution 1.1.0 permits related Workflow and Activity code together; unrelated packages remain independent.
+- Generic executors: explicit installed registrations, owned queues, capacity configuration and unique instance identities.
+- Determinism: Workflow code contains no external I/O even when Activities share its image/process.
+- Safe releases: version routing, per-type lifetime policies, replay evidence and legacy compatibility.
+- Simplicity: combined pool by default; additional pools need a resource/security/scaling reason.
 
-**Project Type**: Multi-service workflow platform with independently deployable API, runtime, task, and Activity worker services
+These are design checks. Executable conformance to the new model remains unverified until Phase 4A and the relevant later phases pass.
 
-**Performance Goals**: Configurable by workflow criticality; queue pickup, start latency, throughput, workflow duration, history size, and resource targets require product baselines before production sizing
-
-**Constraints**: Deterministic workflows, external I/O only in Activities, no permanent cloud keys, no bundled production PostgreSQL, immutable image promotion, graceful worker shutdown, backward-compatible long-running workflow deployments
-
-**Scale/Scope**: Designed for multiple business domains, thousands of definitions, millions of executions, independently scalable worker pools, and future workload isolation; exact capacity requires load testing
-
-## Constitution Check
-
-- Temporal execution substrate: PASS. No custom execution engine is planned.
-- Governed contracts: PASS. Definitions, Activities, APIs, tasks, and audit events are versioned contracts.
-- Independent workers: PASS. Each worker has separate source, tests, image, Deployment, and Helm values.
-- Deterministic workflows: PASS. External I/O is assigned to Activities.
-- Testable delivery: PASS. Each user story has an independent acceptance path.
-- Security/audit: PASS. Identity, secret references, redaction, audit, and telemetry are first-class.
-- Operational recovery: PASS. Retry classification, compensation, remediation, graceful shutdown, and rollback are included.
-- Simplicity: PASS with a documented exception for multiple services because worker independence is a stated requirement.
-
-## Architecture
+## Deployment topology
 
 ```mermaid
 flowchart TD
-    C[Clients, APIs, Events, Future UI] --> G[Workflow Gateway / API]
-    G --> CP[Control Plane]
-    CP --> R[Definition Registry]
-    CP --> HT[Human Task Service]
-    CP --> A[Audit and Observability]
-    CP --> T[Temporal Frontend]
-    T --> WR[Workflow Runtime Worker\nworkflow-orchestration-tq]
-    WR --> V[Validation Worker\nvalidation-tq]
-    WR --> N[Notification Worker\nnotification-tq]
-    WR --> I[Integration Worker\nintegration-tq]
-    WR --> H[Human Task Worker\nhuman-task-tq]
-    V --> E[Enterprise Capabilities]
-    N --> E
-    I --> E
-    H --> E
-    T --> DB[(Cloud SQL PostgreSQL)]
+    C[Business clients and approvers] --> API[Workflow API and control plane]
+    API --> BDB[(Business PostgreSQL: nexusflow)]
+    API --> T[Shared Temporal Service on GKE]
+    T --- QA[customer-adjustment queue]
+    T --- QB[other-package queue]
+    QA <-->|Poll tasks and report results| A[Customer Adjustment generic executors]
+    QB <-->|Poll tasks and report results| B[Other package generic executors]
+    A --> E[Enterprise systems]
+    B --> E
+    A --> HT[Shared human-task service]
+    HT --> BDB
+    HT --> T
+    T --> TDB[(Cloud SQL: temporal and temporal_visibility)]
 ```
 
-## Repository Structure
+Queues are logical resources in the environment's Temporal namespace. Executors connect to Temporal Frontend; the API does not load-balance business requests directly to them. Application executors are distinct from Temporal's internal worker service. Metrics/probes can be exposed internally; polling needs no business ingress.
+
+### Package and release boundaries
+
+- `WorkflowPackage`: workload identity and declared Workflow/Activity handler closure.
+- `WorkflowRelease`: immutable content-manifest hash and post-build artifact digest, exact definition/code, runtime and Activity implementations/contracts, dependency locks and compatibility policy; the image digest is added after the Phase 9 image build.
+- `ExecutorPool`: release, environment, role, approved queues, replicas/capacity, service identity and operational configuration.
+- Definitions remain independently authored/governed, but each release selects exact immutable revisions. Definition promotion alone cannot silently change executable dependencies or routing. An upgrade candidate must include and support the running workflow's original revision and its full handler closure; compatible revision hashes are explicit release metadata. Otherwise that execution stays on its old version.
+- Entrypoints are validated before polling. Executors do not download arbitrary task code or restore the legacy `execute_capability` switch.
+
+### Execution layouts and routing
+
+| Layout | Registration | Capacity/routing |
+| --- | --- | --- |
+| Default combined pool | Workflow and all package-owned Activities | Stable queue name with distinct Workflow/Activity task types; independent package replicas and task slots |
+| Optional role pools | Workflow-only and Activity-only, same image/build | Stable role queues, all members of the same Worker Deployment Version; separate role sizing |
+
+Replicas consuming a given task type on a queue register the same compatible handlers for their routed version. Use environment namespaces and workload/pool queues, not a namespace per definition or queue per execution. Resolve approved bindings outside Workflow code and record them in immutable release/execution inputs; replay never reads mutable deployment configuration.
+
+### Capacity and shutdown
+
+Expose replicas, minimum/maximum replicas, Workflow/Activity slots, supported poller tuning, CPU/memory, downstream rate limits, and shutdown grace in validated configuration. Production serving queues start with at least two polling replicas spread across failure domains; final capacity needs measurements. Local development can use one. Scale using pickup latency/backlog, slots, resource usage, and connection/downstream metrics together. Open workflow count alone is insufficient: human waits and timers do not reserve executor threads for their duration.
+
+Desired pool configuration is not observed readiness. Store reconciliation generation, observed replicas/Build IDs, dependency health and failure state separately; release admission uses confirmed serving state rather than a configuration write.
+
+Give every instance a unique identity correlated with package/build/pool. Drop readiness before draining; allow Kubernetes termination time for SDK shutdown and cleanup. Grace does not guarantee every long Activity finishes; use cooperative cancellation/heartbeats where appropriate and idempotent side effects. Scale-to-zero is not the production default and needs a reliable external wake-up mechanism.
+
+### Version-aware rollout
+
+Use a stable Temporal Worker Deployment name per package and immutable Build ID per release. Multiple Kubernetes release pools coexist behind stable logical queues, with Temporal routing tasks to compatible versions. In-place replacement alone is insufficient for pinned executions.
+
+The database transaction freezes the intended release and bounded eligible routing policy, not a distributed atomic commit with Temporal. Use a supported initial-version routing primitive only where it preserves the declared behavior; otherwise reconcile Temporal's actual initial version before reporting confirmed release provenance. Current/ramping candidates must all support the selected exact definition revision and handler closure. Retry an uncertain submission by stable execution identity and reconcile the existing run, never re-resolve its business revision or pretend a preselected Build ID was confirmed. If a pending start can no longer be routed within its recorded eligibility, retain compatible capacity or report unavailable; do not silently admit an incompatible newly promoted build.
+
+Declare versioning behavior per Workflow type. Short runs may be Pinned and retain their version until completion. Longer workflows choose Pinned with a supported explicit upgrade at a suitable Continue-As-New boundary, or Auto-Upgrade with patching/replay compatibility. Continue-As-New does not automatically unpin a run. Approval migration must preserve signal, task, schema and Activity compatibility.
+
+Package Activity queues belong to the same Worker Deployment Version to preserve release correlation. Unrelated Activity deployments are independent dependencies outside the default complete-package guarantee; shared HTTP/database services remain external operational dependencies.
+
+Temporal Worker Controller is the preferred target for Kubernetes release lifecycle and per-version autoscaling; adopt it after compatibility verification. If the supported production combination cannot use it, document and verify an equivalent version-aware lifecycle adapter rather than claiming ordinary rolling replacement is sufficient. Controller resources own release Deployments; avoid conflicting manual Deployment/HPA ownership. Retire versions only after drainage checks and the retained-query/support policy. Business projections remain accessible independently of Temporal retention.
+
+## Planned implementation structure
+
+These are planning paths, not new implementation directories:
 
 ```text
-.specify/
-  memory/constitution.md
-specs/001-enterprise-workflow-platform/
-  spec.md
-  research.md
-  data-model.md
-  plan.md
-  tasks.md
-  contracts/api.md
-  quickstart.md
 apps/
-  workflow-api/
-  workflow-runtime/
-  human-task-service/
+  workflow-api/                 # existing API, planned release binding extension
+  workflow-executor/            # planned generic process host
+  human-task-service/           # planned shared durable task service
   workflow-admin/
-workflows/
-  common/
-  definitions/
-  examples/
-workers/
-  validation-worker/
-  notification-worker/
-  integration-worker/
-  human-task-worker/
-  sample-business-worker/
+workflow-packages/
+  customer-adjustment/          # manifest, definition/code, locked dependencies
 libs/
-  workflow-sdk/
-  contracts/
+  contracts/                    # package/release/pool contracts
+  workflow-sdk/                 # reusable runtime, manifest/graph validation
+  activities/                   # reusable named package-local Activity code
+  common/                       # configuration, lifecycle, capacity
   observability/
   security/
-  common/
+workflows/common/               # existing pure semantics retained/reused
+tests/fixtures/workflow-packages/validation-reference/
+deploy/helm/workflow-executor/   # reusable package/pool/controller templates
 platform/temporal/
-deploy/helm/
 infrastructure/terraform/
-tests/
 scripts/
 docs/
 ```
 
-## Delivery Phases
+Preserve `app/`, `apps/workflow-runtime/`, `workers/*-worker/`, and version 1 catalogue bindings during migration. Extract reusable code without changing historical names, queues or replay commands. New package execution uses a new compatible runtime/profile and release binding; never silently redirect existing `GovernedWorkflowV1` histories.
 
-**Execution numbering**: Implementation tracks the phase numbers and task IDs in
-[`tasks.md`](tasks.md). Its **Phase 1: Setup (T001–T006)** corresponds to **Phase 0**
-in the delivery roadmap below. The roadmap's **Phase 1: Contracts and runtime
-foundation** spans task Phase 2 and the runtime portion of task Phase 4. These
-roadmap labels are retained as architectural milestones, not task execution IDs.
+## Delivery phases and dependencies
 
-**Current increment**: Foundational Contracts T007–T014 on
-`codex/phase-2-foundational-contracts`, based on `feature/develop`. Setup T001–T006
-is complete. Python 3.11+, uv, Hatchling, Ruff, mypy, and pytest remain the toolchain;
-Temporal SDK 1.33.0 remains pinned to the baseline. Pydantic 2 defines closed
-contracts and generates the definition schema. Pure SDK graph validation and
-deterministic helpers are separate from the legacy interpreter until Phase 4.
+[`tasks.md`](tasks.md) is the sole numbering authority:
 
-**Recorded decisions**:
+| Phase | Tasks | Status / outcome |
+| --- | --- | --- |
+| 1: Setup | T001–T006 | Complete; baseline/tooling |
+| 2: Foundational Contracts | T007–T014 | Complete; typed contracts/pure semantics |
+| 3: Governed Workflow API | T015–T021 | Complete; API/registry/persistence |
+| 4: Original Runtime and Independent Workers | T022–T031 | Complete under superseded capability deployment model |
+| 4A: Workflow Packages and Generic Executors | T078–T090 | Next, unchecked; closure, host, bindings, capacity, version routing and migration |
+| 5: Human Task Management | T032–T038 | Package handlers calling shared durable task service |
+| 6: Failure Handling and Operations | T039–T044 | Side-effect safety, remediation, long-running/history policy |
+| 7: Definition and Release Governance | T045–T048 | Definition/release compatibility, approval and promotion |
+| 8: Security, Audit, Observability | T049–T055 | Scoped operations and release/pool telemetry |
+| 9: Containers, GKE, Cloud SQL | T056–T065 | Images, controller/pools, configured autoscaling and shared infrastructure |
+| 10: CI/CD and Release Promotion | T066–T072 | Transitive affected-package builds and immutable version-aware promotion |
+| 11: Documentation and Migration | T073–T077 | Architecture/runbooks/migration/final evidence |
 
-- [ADR 0001](../../docs/adr/0001-foundational-contracts.md): version 1.0 typed
-  contracts, Draft 2020-12 schema, acyclic graphs with explicit terminals, pure
-  semantics, and foundation packaging.
-- [ADR 0002](../../docs/adr/0002-control-plane-and-identity.md): FastAPI/Pydantic,
-  PostgreSQL with SQLAlchemy/Alembic, and a configured enterprise OIDC/OAuth2
-  issuer. Actual issuer/audience/claim mapping remains a deployment input.
-- [ADR 0003](../../docs/adr/0003-temporal-hosting-and-operating-limits.md):
-  self-hosted Temporal/GKE with external Cloud SQL; development guardrails and
-  named owner roles for production SLO, recovery, retention, and capacity inputs.
+Phase 4A establishes interfaces before later runtime integration. Task persistence and infrastructure design can proceed independently; package deployment integration depends on 4A. Local trusted-package execution is verified first. Production image/controller/autoscaler/GKE checks remain Phase 9; CI promotion is Phase 10. Original test counts cannot substitute for new acceptance evidence.
 
-API/persistence/identity implementations and production release selection remain
-their later task phases. No production SLO or identity-provider product is
-invented by these decisions.
+## Verification strategy
 
-1. **Phase 0: Assessment and baseline**. Document current-to-target mapping, decide unresolved platform choices, establish packaging, and add behavior-preserving tests.
-2. **Phase 1: Contracts and runtime foundation**. Add typed definitions, schema/graph validation, deterministic interpreter boundaries, runtime worker, and Temporal tests.
-3. **Phase 2: Control plane**. Add registry, lifecycle, API, execution metadata, OpenAPI, idempotency, schedules, and event starters.
-4. **Phase 3: Human tasks**. Add task service, worker, authorization, assignment lifecycle, escalation, evidence, and workflow resumption.
-5. **Phase 4: Capability workers**. Extract demo capabilities into independently deployable workers and add adapter contracts/protection.
-6. **Phase 5: Security and operations**. Add identity, secrets, tenant context, audit, telemetry, SLOs, dashboards, and runbooks.
-7. **Phase 6: Containers and local delivery**. Add Dockerfiles, local dependencies, Make targets, and E2E validation.
-8. **Phase 7: GCP/GKE delivery**. Add Terraform, Cloud SQL, Temporal Helm values, service charts, probes, HPAs, and graceful rollout.
-9. **Phase 8: CI/CD**. Add PR checks, affected-image builds, scanning, WIF authentication, promotion, smoke tests, and rollback.
-10. **Phase 9: Documentation and migration**. Add README, architecture docs, ADRs, release/versioning guidance, and Alfresco migration playbooks.
+- Reject missing handlers, incompatible contracts, unapproved entrypoints, mutable dependencies and invalid bindings before polling/promotion; prove closure in clean installed environments without other workers or aggregate-root imports.
+- Test all sample dependencies in package executors, a second package's outage isolation, multiple replicas, role pools, slot limits, replica changes and graceful draining.
+- Verify private immutable bindings survive duplicate starts, uncertain submission, promotions and rollback; clients cannot override queue/build/pool/actor/entrypoints.
+- Exercise real Temporal retries/timeouts/cancellation, approvals/timers, restart/replay, version-aware Activities, ramping and safe migration; preserve replay of original histories.
+- Verify locked images, controller versions, per-version autoscaling, probes, resources/permissions, Helm rendering/lint, Terraform and CI. Repository imports alone do not prove deployable closure.
+- Execute authorized load/failover/cloud exercises and record measured SLO/RTO/RPO evidence. Static checks do not prove cloud capacity.
 
-## Remaining Deployment and Product Decisions
+## Outstanding production inputs
 
-- Enterprise OIDC issuer, audiences, claim mapping and service identity flow.
-- Production Temporal server release and upgrade verification.
-- Workload-specific tenant/domain isolation requirements beyond shared records.
-- Human-task form, evidence, delegation, SLA, and retention policy.
-- Production SLO, throughput, RTO/RPO, payload, history, and audit retention targets.
-- Alfresco process inventory and compatibility scope.
+- OIDC issuer/audience/claim mapping and package service-access policy.
+- Production Temporal/CLI/UI/Worker Controller versions and upgrade verification.
+- Workload throughput, latency, resource/downstream capacity and autoscaling targets.
+- Per-type maximum duration/versioning behavior, history/Continue-As-New thresholds and old-release retention/query policy.
+- Human-task forms/evidence/SLA/retention, payload classification/encryption, tenant isolation and Alfresco parity.
 
-## Verification Strategy
+## Decisions and Temporal guidance
 
-- Unit tests for models, validation, routing, errors, idempotency, tasks, and audit.
-- Temporal tests for timers, retries, timeouts, signals, approvals, cancellation, compensation, and version compatibility.
-- Contract tests for API and every worker Activity.
-- Integration tests using local Temporal and a test persistence environment.
-- E2E test for the complete customer-adjustment flow.
-- Static validation for images, Helm, Terraform, GitHub Actions, and secrets.
-- Cloud validation when credentials exist; otherwise report exact unverified deployment commands.
+- [ADR 0001](../../docs/adr/0001-foundational-contracts.md): typed definitions and pure semantics.
+- [ADR 0002](../../docs/adr/0002-control-plane-and-identity.md): business persistence and identity.
+- [ADR 0003](../../docs/adr/0003-temporal-hosting-and-operating-limits.md): GKE and external Cloud SQL.
+- [ADR 0005](../../docs/adr/0005-runtime-and-worker-ownership.md): retained original Phase 4 history.
+- [ADR 0006](../../docs/adr/0006-workflow-packages-and-executor-pools.md): accepted package/executor target.
+- [Worker practices](https://docs.temporal.io/best-practices/worker) and [task queues](https://docs.temporal.io/task-queue): workload ownership, compatible handlers and serving replicas.
+- [Worker Versioning](https://docs.temporal.io/production-deployment/worker-deployments/worker-versioning) and [Activity behavior](https://docs.temporal.io/worker-versioning): lifetime policies and executable release correlation.
+- [Safe deployments](https://docs.temporal.io/develop/safe-deployments): deterministic changes and replay.
+- [Worker Controller](https://docs.temporal.io/production-deployment/worker-deployments/kubernetes-controller): Kubernetes version lifecycle and autoscaling.
 
-## Complexity Tracking
+## Complexity and tradeoffs
 
-| Complexity | Justification | Simpler Alternative Rejected Because |
-|---|---|---|
-| Multiple deployable worker services | Independent scaling, deployment, versioning, and failure isolation are explicit requirements. | One worker image would couple unrelated release and capacity decisions. |
-| Control-plane metadata separate from Temporal history | Business audit and search have different retention, access, and query needs. | Exposing or copying full Temporal history would leak infrastructure details and increase storage/query cost. |
-| Definition compiler/validator | Future visual authoring and safe versioning require a governed intermediate model. | Passing raw JSON directly to workflows is unsafe and not evolvable. |
+| Choice | Reason | Tradeoff |
+| --- | --- | --- |
+| Per-workflow package image | Reproducible Workflow/Activity ownership | Shared dependencies can be duplicated; changes rebuild all affected packages |
+| Combined pool by default | Simple workload ownership | Resources/permissions coupled; role pools address measured needs |
+| Concurrent release pools | Keep running work compatible while releasing new code | Pinned waits retain old compute/code; explicit lifetime policy bounds cost |
+| Shared platform services | Avoid copying task/database/Temporal infrastructure | Shared capacity/availability remain operational dependencies |
+| Separate definition/release governance | Independent authoring with exact deployed closure | Promotion must validate both definition and compatible package release |
