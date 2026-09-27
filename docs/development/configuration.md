@@ -1,10 +1,11 @@
 # Development configuration and secrets
 
-This document covers the existing prototype and Phase 1 setup. Shared typed
-configuration and error contracts were added in Phase 2; service-specific cloud,
-identity, database, and policy enforcement follows the relevant later phase.
+The governed API and six independent worker services use explicitly loaded typed
+configuration. Follow the [runtime/worker walkthrough](runtime-workers.md) and
+[API walkthrough](workflow-api.md) for current launch settings. The sections below
+also retain the legacy prototype settings and shared foundation conventions.
 
-## Current worker settings
+## Legacy prototype worker settings
 
 `app/worker.py` reads the following process environment variables when the
 module is imported. Set them before starting the worker, then restart the
@@ -20,7 +21,10 @@ one process. It does not read a configurable namespace, authentication,
 TLS, database URL, or secret-provider setting. Adding those names to an
 environment file would not configure the application.
 
-The repository's `.env.example` contains implemented worker and API settings.
+The root `.env.example` contains governed API/runtime defaults. Each capability
+worker has its own `.env.example` with its owned queue. The legacy prototype
+requires `TEMPORAL_TASK_QUEUE=lightweight-workflows` if a governed queue was
+exported earlier.
 Copy it to `.env` for a local reference if useful. **The application does not
 automatically load `.env`**: the file alone has no effect. Export settings in
 the launching shell or use an explicit environment-file loader.
@@ -111,7 +115,8 @@ OIDC, secret-provider integration, and full telemetry remain later increments.
 environment variables into `WorkerSettings`. Pass a mapping to validate a supplied
 configuration without reading the process environment. Importing this module does
 not read settings or connect to Temporal. The prototype worker still reads only
-its original two variables; integration of shared settings belongs to Phase 4.
+its original two variables. The Phase 4 services consume shared settings through
+the explicit worker bootstrap and reject a queue they do not own.
 
 | Variable | Shared default | Constraint |
 | --- | --- | --- |
@@ -124,10 +129,12 @@ its original two variables; integration of shared settings belongs to Phase 4.
 | `NEXUSFLOW_MAX_PAYLOAD_BYTES` | `1048576` | Integer between 1,024 and 16,777,216 |
 | `NEXUSFLOW_SHUTDOWN_GRACE_SECONDS` | `30` | Positive integer |
 
-These limits are development guardrails. Payload budgets and graceful shutdown
-are not applied to the prototype by defining this model. Future services must
-pass the validated settings to their enforcement boundaries. TLS validation does
-not implement authentication or credential resolution.
+These limits are development guardrails. The API enforces streamed HTTP payload
+size and registration step limits. Runtime v1 has a fixed maximum of 500 steps;
+the governed API rejects a larger configured limit. Independent workers use the
+configured SDK graceful drain period. The prototype ignores those shared limits,
+and a full runtime history/payload budget and heartbeat policy remain later work.
+TLS validation does not implement authentication or credential resolution.
 
 `nexusflow_common.errors` classifies explicitly declared validation, business,
 authorization, configuration, technical, timeout, and cancellation failures.

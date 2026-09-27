@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from contracts import DefinitionDocument, ExecutionState, JsonObject
+from contracts import DefinitionDocument, ExecutionState, JsonObject, RuntimeContext, RuntimeProfile
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy.exc import SQLAlchemyError
@@ -55,6 +55,10 @@ class FakeBackend:
         definition: DefinitionDocument,
         request: JsonObject,
         variables: JsonObject,
+        *,
+        context: RuntimeContext | None = None,
+        runtime_profile: RuntimeProfile | None = None,
+        task_queue: str | None = None,
     ) -> str:
         if self.unexpected_error:
             raise RuntimeError("password=private-secret host=internal.example")
@@ -65,6 +69,9 @@ class FakeBackend:
                 "definition": definition,
                 "request": request,
                 "variables": variables,
+                "context": context,
+                "runtime_profile": runtime_profile,
+                "task_queue": task_queue,
             }
         )
         if self.fail_once:
@@ -121,7 +128,13 @@ def harness(tmp_path: Path) -> Iterator[Harness]:
         }
     )
     with TestClient(
-        create_app(repository, backend, authenticator=authenticator, environment="local"),
+        create_app(
+            repository,
+            backend,
+            authenticator=authenticator,
+            environment="local",
+            runtime_profile="legacy",
+        ),
         raise_server_exceptions=False,
     ) as client:
         yield Harness(client, backend, repository, authenticator)

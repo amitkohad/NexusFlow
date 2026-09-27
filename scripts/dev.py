@@ -13,7 +13,17 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "command", choices=("dev", "test", "lint", "format", "build", "docker-build")
+        "command",
+        choices=(
+            "dev",
+            "runtime",
+            "test",
+            "lint",
+            "format",
+            "build",
+            "build-services",
+            "docker-build",
+        ),
     )
     args, extra = parser.parse_known_args()
     if extra and args.command != "test":
@@ -22,6 +32,8 @@ def main() -> int:
     python = sys.executable
     commands: dict[str, list[list[str]]] = {
         "dev": [[python, "-m", "app.worker"]],
+        "runtime": [[python, "-m", "workflow_runtime"]],
+        "build-services": [[python, "scripts/build_services.py", "--verify"]],
         "test": [[python, "-m", "pytest", *extra]],
         "lint": [
             [python, "-m", "ruff", "check", "."],

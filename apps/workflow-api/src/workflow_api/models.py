@@ -89,6 +89,15 @@ class ExecutionRow(ScopedModel, Base):
 
     workflow_id: Mapped[str] = mapped_column(String(256), primary_key=True)
     run_id: Mapped[str | None] = mapped_column(String(256))
+    runtime_profile: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="legacy", server_default="legacy"
+    )
+    runtime_task_queue: Mapped[str] = mapped_column(
+        String(256),
+        nullable=False,
+        default="lightweight-workflows",
+        server_default="lightweight-workflows",
+    )
     workflow_type: Mapped[str] = mapped_column(String(128), nullable=False)
     definition_id: Mapped[str] = mapped_column(String(256), nullable=False)
     definition_version: Mapped[str] = mapped_column(String(64), nullable=False)

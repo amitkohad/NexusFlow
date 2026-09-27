@@ -6,6 +6,7 @@ import os
 from collections.abc import Mapping
 from typing import Self
 
+from contracts import RuntimeProfile
 from nexusflow_common.config import WorkerSettings, load_settings
 from nexusflow_common.errors import ConfigurationError
 from pydantic import Field, SecretStr, ValidationError, model_validator
@@ -13,6 +14,7 @@ from sqlalchemy.engine import make_url
 
 
 class ApiSettings(WorkerSettings):
+    runtime_profile: RuntimeProfile = "governed"
     database_url: SecretStr
     local_token: SecretStr | None = Field(default=None)
     local_actor: str = "local-developer"
@@ -28,6 +30,8 @@ class ApiSettings(WorkerSettings):
             raise ValueError("Invalid business database URL") from None
         if driver not in {"sqlite", "postgresql+psycopg"}:
             raise ValueError("Use sqlite or postgresql+psycopg for the business database")
+        if self.runtime_profile == "governed" and self.max_definition_steps > 500:
+            raise ValueError("Version 1 runtime supports at most 500 steps")
         if self.environment == "prod" and driver != "postgresql+psycopg":
             raise ValueError("Production requires PostgreSQL")
         if self.local_token is not None:
@@ -50,11 +54,15 @@ class ApiSettings(WorkerSettings):
 
 def load_api_settings(environment: Mapping[str, str] | None = None) -> ApiSettings:
     source = dict(os.environ if environment is None else environment)
-    # Until Phase 4, starts must reach the existing interpreter and dispatcher.
-    source.setdefault("TEMPORAL_TASK_QUEUE", "lightweight-workflows")
+    profile = source.get("NEXUSFLOW_RUNTIME_PROFILE", "governed")
+    source.setdefault(
+        "TEMPORAL_TASK_QUEUE",
+        "lightweight-workflows" if profile == "legacy" else "workflow-orchestration-tq",
+    )
     values = load_settings(source).model_dump()
     mapping = {
         "NEXUSFLOW_DATABASE_URL": "database_url",
+        "NEXUSFLOW_RUNTIME_PROFILE": "runtime_profile",
         "NEXUSFLOW_API_TOKEN": "local_token",
         "NEXUSFLOW_API_ACTOR": "local_actor",
         "NEXUSFLOW_API_TENANT": "local_tenant",

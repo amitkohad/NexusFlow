@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nexusflow-workflows"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+only-include = ["__init__.py", "common", "definitions"]
+
+[tool.hatch.build.targets.wheel.sources]
+"" = "workflows"
+
+[tool.hatch.build.targets.sdist]
+include = ["pyproject.toml", "__init__.py", "common", "definitions"]

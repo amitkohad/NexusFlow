@@ -68,7 +68,9 @@ async def governed_api(
     repository = WorkflowRepository(f"sqlite:///{(tmp_path / 'api.sqlite').as_posix()}")
     repository.create_schema()
     queue = f"workflow-api-{uuid4().hex}"
-    backend = TemporalBackend(api_temporal_environment.client, task_queue=queue)
+    backend = TemporalBackend(
+        api_temporal_environment.client, task_queue=queue, runtime_profile="legacy"
+    )
     authenticator = StaticTokenAuthenticator(
         {
             TOKEN: Principal(
@@ -89,7 +91,13 @@ async def governed_api(
             ),
         }
     )
-    application = create_app(repository, backend, authenticator=authenticator, environment="local")
+    application = create_app(
+        repository,
+        backend,
+        authenticator=authenticator,
+        environment="local",
+        runtime_profile="legacy",
+    )
     try:
         async with Worker(
             api_temporal_environment.client,

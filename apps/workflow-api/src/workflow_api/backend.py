@@ -1,8 +1,9 @@
 """Temporal adapter exposing business status without importing a worker.
 
-The Phase 3 API uses the existing LightweightProcess workflow until the separate
-runtime lands. Handles remain pinned to the stored run, and duplicate workflow
-IDs are never allowed to create another run, including after completion.
+The API starts GovernedWorkflowV1 by default and retains an explicit legacy
+adapter. Stored reservations select the runtime type and queue during recovery.
+Handles remain pinned to the stored run, and duplicate workflow IDs are rejected,
+including after completion while the server retains that execution.
 """
 
 from __future__ import annotations
@@ -13,11 +14,25 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Protocol
 
-from contracts import DefinitionDocument, ExecutionState, JsonObject
+from contracts import (
+    DefinitionDocument,
+    ExecutionState,
+    JsonObject,
+    RuntimeContext,
+    RuntimeProfile,
+    RuntimeStartRequest,
+)
 from temporalio.client import Client, WorkflowExecutionStatus
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 from temporalio.exceptions import WorkflowAlreadyStartedError
 from temporalio.service import RPCError, RPCStatusCode
+
+from workflows.common.catalog import (
+    LEGACY_TASK_QUEUE,
+    LEGACY_WORKFLOW_TYPE,
+    RUNTIME_TASK_QUEUE,
+    RUNTIME_WORKFLOW_TYPE,
+)
 
 _TERMINAL_STATES = {
     ExecutionState.COMPLETED,
@@ -59,6 +74,10 @@ class WorkflowBackend(Protocol):
         definition: DefinitionDocument,
         request: JsonObject,
         variables: JsonObject,
+        *,
+        context: RuntimeContext | None = None,
+        runtime_profile: RuntimeProfile | None = None,
+        task_queue: str | None = None,
     ) -> str: ...
 
     async def status(self, workflow_id: str, run_id: str) -> BusinessSnapshot: ...
@@ -110,12 +129,16 @@ class TemporalBackend:
     def __init__(
         self,
         client: Client,
-        task_queue: str = "lightweight-workflows",
+        task_queue: str | None = None,
         *,
+        runtime_profile: RuntimeProfile = "governed",
         rpc_timeout: timedelta = timedelta(seconds=5),
     ) -> None:
         self.client = client
-        self.task_queue = task_queue
+        self.runtime_profile = runtime_profile
+        self.task_queue = task_queue or (
+            LEGACY_TASK_QUEUE if runtime_profile == "legacy" else RUNTIME_TASK_QUEUE
+        )
         self.rpc_timeout = rpc_timeout
 
     async def start(
@@ -125,21 +148,39 @@ class TemporalBackend:
         definition: DefinitionDocument,
         request: JsonObject,
         variables: JsonObject,
+        *,
+        context: RuntimeContext | None = None,
+        runtime_profile: RuntimeProfile | None = None,
+        task_queue: str | None = None,
     ) -> str:
-        payload = definition.model_dump(mode="json", exclude_none=True)
-        payload.update(
-            process_id=workflow_id,
-            workflow_name=workflow_type,
-            request=deepcopy(request),
-            variables=deepcopy(variables),
-        )
+        profile = runtime_profile or self.runtime_profile
+        queue = task_queue or self.task_queue
+        if profile == "legacy":
+            workflow_name = LEGACY_WORKFLOW_TYPE
+            payload = definition.model_dump(mode="json", exclude_none=True)
+            payload.update(
+                process_id=workflow_id,
+                workflow_name=workflow_type,
+                request=deepcopy(request),
+                variables=deepcopy(variables),
+            )
+        else:
+            if context is None:
+                raise BackendUnavailable()
+            workflow_name = RUNTIME_WORKFLOW_TYPE
+            payload = RuntimeStartRequest(
+                context=context,
+                definition_document=definition,
+                request=request,
+                variables=variables,
+            ).model_dump(mode="json")
         try:
             try:
                 handle = await self.client.start_workflow(
-                    "LightweightProcess",
+                    workflow_name,
                     payload,
                     id=workflow_id,
-                    task_queue=self.task_queue,
+                    task_queue=queue,
                     id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
                     id_conflict_policy=WorkflowIDConflictPolicy.FAIL,
                     rpc_timeout=self.rpc_timeout,

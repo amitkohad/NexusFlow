@@ -6,9 +6,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from contracts import DefinitionDocument, JsonObject
+from contracts import DefinitionDocument, JsonObject, RuntimeContext, RuntimeProfile
 from fastapi import FastAPI
 from temporalio.client import Client
+from temporalio.contrib.pydantic import pydantic_data_converter
 
 from .api import PERMISSIONS, create_app
 from .backend import BackendUnavailable, BusinessSnapshot, TemporalBackend, WorkflowBackend
@@ -35,9 +36,20 @@ class ConnectedBackend:
         definition: DefinitionDocument,
         request: JsonObject,
         variables: JsonObject,
+        *,
+        context: RuntimeContext | None = None,
+        runtime_profile: RuntimeProfile | None = None,
+        task_queue: str | None = None,
     ) -> str:
         return await self.connected().start(
-            workflow_id, workflow_type, definition, request, variables
+            workflow_id,
+            workflow_type,
+            definition,
+            request,
+            variables,
+            context=context,
+            runtime_profile=runtime_profile,
+            task_queue=task_queue,
         )
 
     async def status(self, workflow_id: str, run_id: str) -> BusinessSnapshot:
@@ -90,8 +102,11 @@ def create_app_from_env() -> FastAPI:
                     settings.temporal_address,
                     namespace=settings.temporal_namespace,
                     tls=settings.temporal_tls,
+                    data_converter=pydantic_data_converter,
                 )
-                backend.delegate = TemporalBackend(client, settings.temporal_task_queue)
+                backend.delegate = TemporalBackend(
+                    client, settings.temporal_task_queue, runtime_profile=settings.runtime_profile
+                )
             except Exception:
                 raise RuntimeError("Workflow runtime connection failed") from None
             yield
@@ -106,5 +121,7 @@ def create_app_from_env() -> FastAPI:
         environment=settings.environment,
         max_request_bytes=settings.max_payload_bytes,
         max_definition_steps=settings.max_definition_steps,
+        runtime_profile=settings.runtime_profile,
+        runtime_task_queue=settings.temporal_task_queue,
         lifespan=lifespan,
     )

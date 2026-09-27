@@ -11,9 +11,14 @@ from uuid import uuid4
 
 from contracts import (
     ActivityStep,
+    ApprovalStep,
     BusinessAuditEvent,
+    DefinitionDependency,
+    DefinitionDocument,
     ExecutionState,
     RegisterDefinitionRequest,
+    RuntimeContext,
+    RuntimeProfile,
     SignalWorkflowRequest,
     StartWorkflowRequest,
     WorkflowDefinition,
@@ -21,6 +26,13 @@ from contracts import (
     WorkflowLinks,
 )
 from workflow_sdk.definitions import DefinitionValidationError, validate_definition
+
+from workflows.common.catalog import (
+    CAPABILITY_ROUTES,
+    LEGACY_TASK_QUEUE,
+    RUNTIME_TASK_QUEUE,
+    resolve_capability,
+)
 
 from .backend import BackendNotFound, BackendUnavailable, WorkflowBackend
 from .errors import ApiError
@@ -77,11 +89,17 @@ class WorkflowService:
         backend: WorkflowBackend,
         environment: str,
         max_definition_steps: int = 500,
+        runtime_profile: RuntimeProfile = "governed",
+        runtime_task_queue: str | None = None,
     ) -> None:
         self.repository = repository
         self.backend = backend
         self.environment = environment
         self.max_definition_steps = max_definition_steps
+        self.runtime_profile = runtime_profile
+        self.runtime_task_queue = runtime_task_queue or (
+            LEGACY_TASK_QUEUE if runtime_profile == "legacy" else RUNTIME_TASK_QUEUE
+        )
 
     async def register(self, request: RegisterDefinitionRequest, actor: str) -> WorkflowDefinition:
         try:
@@ -96,21 +114,67 @@ class WorkflowService:
             ) from exc
         for step in document.steps.values():
             if isinstance(step, ActivityStep) and (
-                step.task_queue is not None
-                or step.contract_version is not None
-                or step.compensation is not None
-                or _contains_template(step.input)
+                step.compensation is not None
+                or (
+                    self.runtime_profile == "legacy"
+                    and (
+                        step.task_queue is not None
+                        or step.contract_version is not None
+                        or _contains_template(step.input)
+                    )
+                )
             ):
                 raise ApiError(
                     422,
                     "runtime_feature_unavailable",
-                    "Queue routing, contract versions, compensation and input templates require the dedicated runtime",
+                    "Definition requires features unavailable in the selected runtime profile",
                 )
-        if request.dependencies:
+        if self.runtime_profile == "legacy" and request.dependencies:
             raise ApiError(
                 422,
                 "runtime_feature_unavailable",
                 "Versioned worker dependencies require the dedicated runtime",
+            )
+        if self.runtime_profile == "governed":
+            normalized = document.model_dump(mode="json")
+            capabilities: set[str] = set()
+            for step_id, step in document.steps.items():
+                if isinstance(step, ActivityStep):
+                    try:
+                        route = resolve_capability(
+                            step.capability, step.contract_version, step.task_queue
+                        )
+                    except ValueError:
+                        raise ApiError(
+                            422,
+                            "activity_contract_unavailable",
+                            "Activity version or queue violates its owned contract",
+                        ) from None
+                    normalized["steps"][step_id].update(
+                        task_queue=route.task_queue, contract_version=route.contract_version
+                    )
+                    capabilities.add(step.capability)
+                elif isinstance(step, ApprovalStep):
+                    capabilities.add("create_approval_task")
+            expected = tuple(
+                DefinitionDependency(
+                    capability=capability,
+                    contract_version=CAPABILITY_ROUTES[capability].contract_version,
+                    task_queue=CAPABILITY_ROUTES[capability].task_queue,
+                )
+                for capability in sorted(capabilities)
+            )
+            if request.dependencies and set(request.dependencies) != set(expected):
+                raise ApiError(
+                    422,
+                    "dependency_mismatch",
+                    "Dependencies must match the definition's versioned capability contracts",
+                )
+            request = request.model_copy(
+                update={
+                    "definition_document": DefinitionDocument.model_validate(normalized),
+                    "dependencies": expected,
+                }
             )
         return await asyncio.to_thread(self.repository.register, request, actor, utcnow())
 
@@ -143,6 +207,24 @@ class WorkflowService:
                 self.environment,
                 request.definition_version,
             )
+            if self.runtime_profile == "legacy" and (
+                definition.dependencies
+                or any(
+                    isinstance(step, ActivityStep)
+                    and (
+                        step.task_queue is not None
+                        or step.contract_version is not None
+                        or step.compensation is not None
+                        or _contains_template(step.input)
+                    )
+                    for step in definition.definition_document.steps.values()
+                )
+            ):
+                raise ApiError(
+                    409,
+                    "runtime_profile_mismatch",
+                    "Promoted revision requires the governed runtime",
+                )
             now = utcnow()
             record, created = await asyncio.to_thread(
                 self.repository.reserve_execution,
@@ -162,6 +244,8 @@ class WorkflowService:
                     created_by=principal.subject,
                     started_at=now,
                     updated_at=now,
+                    runtime_profile=self.runtime_profile,
+                    runtime_task_queue=self.runtime_task_queue,
                 ),
             )
         assert record is not None
@@ -175,6 +259,17 @@ class WorkflowService:
                 record.definition_document,
                 record.request,
                 record.variables,
+                context=RuntimeContext(
+                    **record.scope.as_dict(),
+                    workflow_type=record.workflow_type,
+                    definition_id=record.definition_id,
+                    definition_version=record.definition_version,
+                    business_reference=record.business_reference,
+                    correlation_id=record.correlation_id,
+                    actor=record.created_by,
+                ),
+                runtime_profile=record.runtime_profile,
+                task_queue=record.runtime_task_queue,
             )
             record = await asyncio.to_thread(
                 self.repository.mark_started, record.scope, record.workflow_id, run_id, utcnow()

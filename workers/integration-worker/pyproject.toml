@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nexusflow-integration-worker"
+version = "0.1.0"
+description = "NexusFlow integration-worker Activity service"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "nexusflow-contracts==0.1.0",
+    "nexusflow-common==0.1.0",
+    "nexusflow-workflow-sdk==0.1.0",
+    "nexusflow-workflows==0.1.0",
+    "temporalio==1.33.0",
+]
+
+[project.scripts]
+nexusflow-integration-worker = "integration_worker.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/integration_worker"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "pyproject.toml", ".env.example"]
