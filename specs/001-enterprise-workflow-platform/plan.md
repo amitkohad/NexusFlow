@@ -1,6 +1,6 @@
 # Implementation Plan: Enterprise Workflow Platform
 
-**Branch**: `001-enterprise-workflow-platform` | **Date**: 2026-09-26 | **Spec**: [spec.md](spec.md)
+**Implementation Branch**: `codex/phase-2-foundational-contracts` (from `feature/develop`) | **Date**: 2026-09-26 | **Spec**: [spec.md](spec.md)
 
 ## Summary
 
@@ -10,9 +10,9 @@ Transform the single-process Temporal prototype into a governed platform while p
 
 **Language/Version**: Python 3.11+
 
-**Primary Dependencies**: Temporal Python SDK, typed validation/modeling library, HTTP API framework, OpenAPI tooling, pytest, static analysis, OpenTelemetry, PostgreSQL client/migration tooling
+**Primary Dependencies**: Temporal Python SDK 1.33.0, Pydantic 2, pytest, Ruff and mypy; jsonschema validates generated schema in development. Selected later service stack: FastAPI/OpenAPI, SQLAlchemy 2/Alembic/PostgreSQL, and OpenTelemetry.
 
-**Storage**: Temporal persistence in external Cloud SQL PostgreSQL databases `temporal` and `temporal_visibility`; control-plane and human-task persistence to be selected during Phase 0
+**Storage**: Temporal persistence in external Cloud SQL PostgreSQL databases `temporal` and `temporal_visibility`; PostgreSQL control-plane and human-task records in a separately managed `nexusflow` database, using SQLAlchemy 2 repository adapters and Alembic migrations in later implementation.
 
 **Testing**: pytest, Temporal test facilities/local Temporal environment, contract tests, integration tests, E2E tests, Helm lint/template, Terraform fmt/validate, YAML and secret scans
 
@@ -109,13 +109,28 @@ in the delivery roadmap below. The roadmap's **Phase 1: Contracts and runtime
 foundation** spans task Phase 2 and the runtime portion of task Phase 4. These
 roadmap labels are retained as architectural milestones, not task execution IDs.
 
-**Current increment**: Setup T001–T006. Python 3.11+ remains the target; uv with a
-committed lockfile provides dependency management, Hatchling provides packaging,
-Ruff provides lint/format checks, mypy provides type checks, and pytest with
-pytest-asyncio provides baseline tests against a local Temporal CLI server.
-Temporal SDK 1.33.0 is pinned to the existing development baseline. The initial
-Docker command reports packaging as deferred to T056. No API, persistence,
-identity, cloud hosting, or production NFR selection is made by this setup work.
+**Current increment**: Foundational Contracts T007–T014 on
+`codex/phase-2-foundational-contracts`, based on `feature/develop`. Setup T001–T006
+is complete. Python 3.11+, uv, Hatchling, Ruff, mypy, and pytest remain the toolchain;
+Temporal SDK 1.33.0 remains pinned to the baseline. Pydantic 2 defines closed
+contracts and generates the definition schema. Pure SDK graph validation and
+deterministic helpers are separate from the legacy interpreter until Phase 4.
+
+**Recorded decisions**:
+
+- [ADR 0001](../../docs/adr/0001-foundational-contracts.md): version 1.0 typed
+  contracts, Draft 2020-12 schema, acyclic graphs with explicit terminals, pure
+  semantics, and foundation packaging.
+- [ADR 0002](../../docs/adr/0002-control-plane-and-identity.md): FastAPI/Pydantic,
+  PostgreSQL with SQLAlchemy/Alembic, and a configured enterprise OIDC/OAuth2
+  issuer. Actual issuer/audience/claim mapping remains a deployment input.
+- [ADR 0003](../../docs/adr/0003-temporal-hosting-and-operating-limits.md):
+  self-hosted Temporal/GKE with external Cloud SQL; development guardrails and
+  named owner roles for production SLO, recovery, retention, and capacity inputs.
+
+API/persistence/identity implementations and production release selection remain
+their later task phases. No production SLO or identity-provider product is
+invented by these decisions.
 
 1. **Phase 0: Assessment and baseline**. Document current-to-target mapping, decide unresolved platform choices, establish packaging, and add behavior-preserving tests.
 2. **Phase 1: Contracts and runtime foundation**. Add typed definitions, schema/graph validation, deterministic interpreter boundaries, runtime worker, and Temporal tests.
@@ -128,12 +143,11 @@ identity, cloud hosting, or production NFR selection is made by this setup work.
 9. **Phase 8: CI/CD**. Add PR checks, affected-image builds, scanning, WIF authentication, promotion, smoke tests, and rollback.
 10. **Phase 9: Documentation and migration**. Add README, architecture docs, ADRs, release/versioning guidance, and Alfresco migration playbooks.
 
-## Key Decisions Required Before Implementation
+## Remaining Deployment and Product Decisions
 
-- Control-plane persistence technology and migration strategy.
-- API framework and identity provider.
-- Self-hosted Temporal on GKE versus managed Temporal hosting.
-- Initial tenant/domain isolation model.
+- Enterprise OIDC issuer, audiences, claim mapping and service identity flow.
+- Production Temporal server release and upgrade verification.
+- Workload-specific tenant/domain isolation requirements beyond shared records.
 - Human-task form, evidence, delegation, SLA, and retention policy.
 - Production SLO, throughput, RTO/RPO, payload, history, and audit retention targets.
 - Alfresco process inventory and compatibility scope.

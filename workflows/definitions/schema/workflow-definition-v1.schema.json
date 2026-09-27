@@ -1,0 +1,478 @@
+{
+  "$comment": "This schema validates syntax. Use workflow_sdk.validate_definition for graph, capability policy, JSON nesting, and cross-field constraints.",
+  "$defs": {
+    "ActivityStep": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "compensation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CompensationPolicyModel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "contract_version": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contract Version"
+        },
+        "input": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Input",
+          "type": "object"
+        },
+        "next": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Next",
+          "type": "string"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicyModel"
+        },
+        "task_queue": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Queue"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "exclusiveMinimum": 0,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "activity",
+          "default": "activity",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability",
+        "next"
+      ],
+      "title": "ActivityStep",
+      "type": "object"
+    },
+    "ApprovalStep": {
+      "additionalProperties": false,
+      "properties": {
+        "assignee_group": {
+          "default": "approvers",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Assignee Group",
+          "type": "string"
+        },
+        "on_approved": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On Approved",
+          "type": "string"
+        },
+        "on_rejected": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On Rejected",
+          "type": "string"
+        },
+        "on_timeout": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On Timeout",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "exclusiveMinimum": 0,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "approval",
+          "default": "approval",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "on_approved",
+        "on_rejected",
+        "on_timeout"
+      ],
+      "title": "ApprovalStep",
+      "type": "object"
+    },
+    "CompensationPolicyModel": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "contract_version": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contract Version"
+        },
+        "input": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Input",
+          "type": "object"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicyModel"
+        },
+        "task_queue": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Queue"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "exclusiveMinimum": 0,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "capability"
+      ],
+      "title": "CompensationPolicyModel",
+      "type": "object"
+    },
+    "DecisionStep": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "pattern": "^(?:[A-Za-z_][A-Za-z0-9_-]*|0|[1-9][0-9]*)(\\.(?:[A-Za-z_][A-Za-z0-9_-]*|0|[1-9][0-9]*))*$",
+          "title": "Field",
+          "type": "string"
+        },
+        "on_false": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On False",
+          "type": "string"
+        },
+        "on_true": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On True",
+          "type": "string"
+        },
+        "operator": {
+          "default": "==",
+          "enum": [
+            "==",
+            "!=",
+            ">",
+            ">=",
+            "<",
+            "<=",
+            "in"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "type": {
+          "const": "decision",
+          "default": "decision",
+          "title": "Type",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "field",
+        "value",
+        "on_true",
+        "on_false"
+      ],
+      "title": "DecisionStep",
+      "type": "object"
+    },
+    "EndStep": {
+      "additionalProperties": false,
+      "properties": {
+        "outcome": {
+          "$ref": "#/$defs/TerminalOutcome",
+          "default": "COMPLETED"
+        },
+        "type": {
+          "const": "end",
+          "default": "end",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "EndStep",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "RetryPolicyModel": {
+      "additionalProperties": false,
+      "properties": {
+        "backoff_coefficient": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 2,
+          "ge": 1,
+          "title": "Backoff Coefficient"
+        },
+        "initial_interval_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 1,
+          "gt": 0,
+          "title": "Initial Interval Seconds"
+        },
+        "maximum_attempts": {
+          "default": 3,
+          "exclusiveMinimum": 0,
+          "title": "Maximum Attempts",
+          "type": "integer"
+        },
+        "maximum_interval_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 10,
+          "gt": 0,
+          "title": "Maximum Interval Seconds"
+        },
+        "non_retryable_error_types": {
+          "default": [
+            "ValidationError",
+            "BusinessError",
+            "AuthorizationError"
+          ],
+          "items": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Non Retryable Error Types",
+          "type": "array"
+        }
+      },
+      "title": "RetryPolicyModel",
+      "type": "object"
+    },
+    "TerminalOutcome": {
+      "enum": [
+        "COMPLETED",
+        "REJECTED",
+        "TIMED_OUT",
+        "CANCELLED",
+        "FAILED"
+      ],
+      "title": "TerminalOutcome",
+      "type": "string"
+    },
+    "TimerStep": {
+      "additionalProperties": false,
+      "properties": {
+        "next": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Next",
+          "type": "string"
+        },
+        "seconds": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "timer",
+          "default": "timer",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "next"
+      ],
+      "title": "TimerStep",
+      "type": "object"
+    }
+  },
+  "$id": "urn:nexusflow:workflow-definition:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "process_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Process Id"
+    },
+    "request": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Request",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "start_at": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+      "title": "Start At",
+      "type": "string"
+    },
+    "steps": {
+      "minProperties": 1,
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_-]*$": {
+          "discriminator": {
+            "mapping": {
+              "activity": "#/$defs/ActivityStep",
+              "approval": "#/$defs/ApprovalStep",
+              "decision": "#/$defs/DecisionStep",
+              "end": "#/$defs/EndStep",
+              "timer": "#/$defs/TimerStep"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ActivityStep"
+            },
+            {
+              "$ref": "#/$defs/DecisionStep"
+            },
+            {
+              "$ref": "#/$defs/ApprovalStep"
+            },
+            {
+              "$ref": "#/$defs/TimerStep"
+            },
+            {
+              "$ref": "#/$defs/EndStep"
+            }
+          ]
+        }
+      },
+      "propertyNames": {
+        "minLength": 1
+      },
+      "title": "Steps",
+      "type": "object"
+    },
+    "variables": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Variables",
+      "type": "object"
+    },
+    "workflow_name": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Workflow Name"
+    }
+  },
+  "required": [
+    "start_at",
+    "steps"
+  ],
+  "title": "DefinitionDocument",
+  "type": "object"
+}

@@ -34,14 +34,25 @@ message; Dockerfiles and image validation remain T056/T065.
 
 **Purpose**: Blocking foundation for all user stories.
 
-- [ ] T007 [P] Define typed domain contracts in `libs/contracts/src/contracts/` for definitions, executions, tasks, Activities, errors, context, and audit events.
-- [ ] T008 [P] Add workflow definition JSON Schema under `workflows/definitions/schema/`.
-- [ ] T009 Implement definition parsing and graph validation in `libs/workflow-sdk/src/workflow_sdk/definitions/`.
-- [ ] T010 Implement deterministic path, decision, transition, and template semantics in `workflows/common/`.
-- [ ] T011 [P] Define retry, timeout, heartbeat, compensation, cancellation, idempotency, and failure policy models in `libs/contracts/`.
-- [ ] T012 [P] Add shared configuration and error taxonomy under `libs/common/`.
-- [ ] T013 Add unit tests for schema, graph validation, routing, path resolution, and error classification under `tests/unit/`.
-- [ ] T014 Record selected API framework, persistence, identity, Temporal hosting, and NFR decisions in `specs/001-enterprise-workflow-platform/plan.md` and ADRs.
+- [x] T007 [P] Define typed domain contracts in `libs/contracts/src/contracts/` for definitions, executions, tasks, Activities, errors, context, and audit events.
+- [x] T008 [P] Add workflow definition JSON Schema under `workflows/definitions/schema/`.
+- [x] T009 Implement definition parsing and graph validation in `libs/workflow-sdk/src/workflow_sdk/definitions/`.
+- [x] T010 Implement deterministic path, decision, transition, and template semantics in `workflows/common/`.
+- [x] T011 [P] Define retry, timeout, heartbeat, compensation, cancellation, idempotency, and failure policy models in `libs/contracts/`.
+- [x] T012 [P] Add shared configuration and error taxonomy under `libs/common/`.
+- [x] T013 Add unit tests for schema, graph validation, routing, path resolution, and error classification under `tests/unit/`.
+- [x] T014 Record selected API framework, persistence, identity, Temporal hosting, and NFR decisions in `specs/001-enterprise-workflow-platform/plan.md` and ADRs.
+
+**Foundation verification (2026-09-26)**: Implemented on
+`codex/phase-2-foundational-contracts`, created from `feature/develop` at
+`bc47f210ed74034e6e651882d8c714a6191a334e`. The full suite passed 261 tests,
+including the existing Temporal baseline. Ruff lint/format, mypy, generated-schema
+drift checks, locked dependency checks, wheel/source builds, archive inspection,
+and wheel-only foundation imports/validation passed. The existing sample validates
+as schema 1.0 with 10 steps. The legacy application and its queue were not changed.
+ADRs record implementation direction and development guardrails; enterprise
+OIDC deployment values and measured production SLO/recovery/retention targets
+remain owner inputs for later service/deployment acceptance.
 
 **Checkpoint**: Definitions are typed and validated; baseline behavior remains covered.
 
@@ -205,4 +216,4 @@ message; Dockerfiles and image validation remain T056/T065.
 7. Add GKE/Cloud SQL and CI/CD artifacts.
 8. Run the final static and executable acceptance checklist.
 
-No application code is included in this task set; these are implementation instructions for a later coding phase.
+Completion markers reflect implemented increments; unchecked tasks remain instructions for later phases.

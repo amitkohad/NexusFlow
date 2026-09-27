@@ -1,4 +1,4 @@
-# Local development and Phase 1 checks
+# Local development and foundation checks
 
 Use Python 3.11+ and uv 0.7.7+ (with dependency-group support). Install the
 Temporal CLI and ensure `temporal` is on PATH for development and integration
@@ -48,10 +48,13 @@ uv run --locked python scripts/dev.py docker-build
 GNU Make users can run `make dev`, `make test`, `make lint`, `make format`,
 `make build`, and `make docker-build`. Both entry points call the same runner.
 `dev` starts the existing worker; start `temporal server start-dev` separately.
-`lint` runs Ruff lint, Ruff format checks, and mypy; failed checks return nonzero.
+`lint` runs Ruff lint, Ruff format checks, mypy, and definition-schema drift checks;
+failed checks return nonzero.
 `build` creates a wheel and source distribution in ignored `dist/`, using the
 locked build tools without installing new build dependencies. No service
-reorganization is performed in this phase.
+reorganization is performed in this phase. The distribution now includes the
+shared contracts, SDK, configuration, and deterministic helpers from their
+planned source directories.
 
 `docker-build` deliberately exits with code 2 and explains that service Dockerfiles
 are deferred to T056. It is an initial entry point, not a completed image build.
@@ -70,7 +73,8 @@ an existing development server. Missing CLI prerequisites fail the integration
 suite with an actionable message instead of silently skipping it. Timeout/timer
 fixtures use short waits while the shipped sample definition remains unchanged.
 
-The unit suite characterizes current validation limits. Contract and E2E
+The unit suite covers foundational contracts and validation plus the original
+prototype's minimal validator. Contract and E2E
 directories reserve ownership for later API/worker/platform increments; no
 coverage is claimed for services that do not exist yet. Integration tests use
 Temporal's workflow sandbox and the actual prototype Activities.
@@ -85,3 +89,24 @@ Phase 1 means **Setup (T001–T006)** in `tasks.md`. The original delivery roadm
 calls this assessment/baseline Phase 0; its Phase 1 contracts/runtime foundation
 maps to later task groups. API, persistence, identity, new runtime/worker services,
 containers, and cloud choices remain later work.
+
+Phase 2 means **Foundational Contracts (T007–T014)**. It establishes new library
+boundaries without replacing the prototype interpreter or implementing API/task
+services. See the [definition semantics](../architecture/definition-semantics.md)
+and [contract ADR](../adr/0001-foundational-contracts.md).
+
+## Definition validation
+
+```text
+uv run --locked python -m workflow_sdk.definitions examples/customer_adjustment.json
+uv run --locked python scripts/generate_definition_schema.py --check
+uv run --locked python scripts/generate_definition_schema.py
+```
+
+The final command regenerates the schema after intentional model changes. The
+validator command applies syntax and graph checks; repeat `--capability NAME` to
+supply a capability allow-list and use `--max-steps N` to override the 500-step
+default. An omitted allow-list is not evidence that deployed capability contracts
+exist. The CLI reads files; the parser/validator library performs no external I/O.
+Graph, allow-list, and cross-field policy constraints require SDK validation;
+validating the JSON Schema alone does not check them.
