@@ -1,6 +1,6 @@
 # Implementation Plan: Enterprise Workflow Platform
 
-**Implementation Branch**: `codex/phase-2-foundational-contracts` (from `feature/develop`) | **Date**: 2026-09-26 | **Spec**: [spec.md](spec.md)
+**Implementation Branch**: `codex/phase-3-governed-workflow-api` (from `feature/develop`) | **Date**: 2026-09-27 | **Spec**: [spec.md](spec.md)
 
 ## Summary
 
@@ -10,9 +10,9 @@ Transform the single-process Temporal prototype into a governed platform while p
 
 **Language/Version**: Python 3.11+
 
-**Primary Dependencies**: Temporal Python SDK 1.33.0, Pydantic 2, pytest, Ruff and mypy; jsonschema validates generated schema in development. Selected later service stack: FastAPI/OpenAPI, SQLAlchemy 2/Alembic/PostgreSQL, and OpenTelemetry.
+**Primary Dependencies**: Temporal Python SDK 1.33.0, Pydantic 2, FastAPI/OpenAPI, SQLAlchemy 2/Alembic/psycopg/PostgreSQL, Uvicorn, pytest, Ruff and mypy; jsonschema validates generated schema in development. OpenTelemetry remains a later increment. Exact versions are pinned in `uv.lock`.
 
-**Storage**: Temporal persistence in external Cloud SQL PostgreSQL databases `temporal` and `temporal_visibility`; PostgreSQL control-plane and human-task records in a separately managed `nexusflow` database, using SQLAlchemy 2 repository adapters and Alembic migrations in later implementation.
+**Storage**: Temporal persistence is planned in external Cloud SQL PostgreSQL databases `temporal` and `temporal_visibility`. Phase 3 implements PostgreSQL control-plane repositories and Alembic migrations for a separately managed business database; local/test SQLite is supported. Cloud SQL provisioning and human-task persistence remain later phases.
 
 **Testing**: pytest, Temporal test facilities/local Temporal environment, contract tests, integration tests, E2E tests, Helm lint/template, Terraform fmt/validate, YAML and secret scans
 
