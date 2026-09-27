@@ -1,5 +1,11 @@
 # Temporal Lightweight Workflow Prototype
 
+Phase 3 adds a governed workflow API with persistent definition approval and
+promotion, idempotent starts, business status/history, and scoped authorization.
+Follow the [API walkthrough](docs/development/workflow-api.md) or read the
+[service README](apps/workflow-api/README.md). The CLI prototype below remains
+available while Phase 4 extracts the runtime and independent workers.
+
 A small working prototype for replacing Alfresco Process Services-style lightweight workflows with an in-house framework built on Temporal.
 
 The prototype intentionally separates **process definition** from **enterprise capability execution**:
@@ -25,7 +31,7 @@ The prototype intentionally separates **process definition** from **enterprise c
 | Long-running process state | Temporal durable Workflow state |
 | Runtime status | Temporal Query `status` |
 | Audit/execution history | Temporal Event History / Web UI |
-| Versioned process definitions | Framework roadmap: definition registry + worker versioning |
+| Versioned process definitions | Phase 3 registry, approval/promotion and execution version pinning |
 
 ## Prerequisites
 
@@ -209,8 +215,8 @@ See [development tooling](docs/development/tooling.md),
 [foundation decisions](docs/adr/0001-foundational-contracts.md). The prototype
 worker retains its original execution path until the runtime extraction phase.
 
-1. Add a workflow-definition registry and integrate foundation validation into starters.
-2. Add a Spring Boot or FastAPI control-plane API for start/query/signal/task operations.
+1. Extract the dedicated runtime and independent capability workers (Phase 4).
+2. Extend the FastAPI control plane with later task, governance and operational policies.
 3. Add a human-task service and web inbox so users never need Temporal CLI.
 4. Replace the mock capability dispatcher with a plugin/adapter SDK for REST, gRPC, Kafka, files, databases, notifications, and enterprise APIs.
 5. Add OIDC/RBAC, secrets integration, encryption/data converters, observability, SLOs and chargeback/showback.

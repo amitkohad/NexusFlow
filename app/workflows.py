@@ -113,6 +113,7 @@ class LightweightProcess:
                 seconds=float(retry_cfg.get("maximum_interval_seconds", 10))
             ),
             backoff_coefficient=float(retry_cfg.get("backoff_coefficient", 2.0)),
+            non_retryable_error_types=retry_cfg.get("non_retryable_error_types", []),
         )
 
         payload = {

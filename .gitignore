@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local workflow API metadata; production uses the separately managed database.
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+nexusflow.db

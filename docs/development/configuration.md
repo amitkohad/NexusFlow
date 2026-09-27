@@ -20,7 +20,7 @@ one process. It does not read a configurable namespace, authentication,
 TLS, database URL, or secret-provider setting. Adding those names to an
 environment file would not configure the application.
 
-The repository's `.env.example` contains only implemented worker settings.
+The repository's `.env.example` contains implemented worker and API settings.
 Copy it to `.env` for a local reference if useful. **The application does not
 automatically load `.env`**: the file alone has no effect. Export settings in
 the launching shell or use an explicit environment-file loader.
@@ -98,6 +98,12 @@ amount and a deliberately transient risk-check failure.
 
 These are repository conventions, not implemented authentication, redaction,
 encryption, secret-provider integration, or automated secret scanning.
+
+Phase 3 implements a scoped API identity boundary, explicit local/test token
+adapter, safe error responses and request logs, database migrations, and streamed
+payload limits. Follow the [API configuration and walkthrough](workflow-api.md).
+The prototype worker still consumes only its original two settings; enterprise
+OIDC, secret-provider integration, and full telemetry remain later increments.
 
 ## Phase 2 shared settings
 

@@ -8,12 +8,21 @@ version = "0.1.0"
 description = "Temporal workflow platform prototype"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["temporalio==1.33.0", "pydantic>=2.10,<3"]
+dependencies = [
+    "temporalio==1.33.0",
+    "pydantic>=2.10,<3",
+    "fastapi>=0.115,<1",
+    "sqlalchemy>=2.0,<3",
+    "alembic>=1.14,<2",
+    "psycopg[binary]>=3.2,<4",
+    "uvicorn>=0.34,<1",
+]
 
 [dependency-groups]
 dev = [
     "build>=1.2,<2",
     "hatchling==1.27.0",
+    "httpx>=0.28,<1",
     "jsonschema>=4.23,<5",
     "mypy>=1.15,<2",
     "pytest>=8.3,<9",
@@ -29,10 +38,14 @@ packages = [
     "libs/contracts/src/contracts",
     "libs/common/src/nexusflow_common",
     "libs/workflow-sdk/src/workflow_sdk",
+    "apps/workflow-api/src/workflow_api",
 ]
 
 [tool.hatch.build.targets.sdist]
-include = ["app", "libs", "workflows", "examples", "scripts", "tests", "docs", "README.md", "pyproject.toml", "uv.lock", "requirements.txt", "Makefile", ".env.example"]
+include = ["app", "apps", "libs", "workflows", "migrations", "examples", "scripts", "tests", "docs", "README.md", "pyproject.toml", "uv.lock", "requirements.txt", "Makefile", ".env.example"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"migrations" = "workflow_api/migrations"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -44,6 +57,7 @@ markers = [
     "integration: requires a local Temporal CLI (managed isolated server)",
     "contract: service boundary contract checks",
     "e2e: complete platform acceptance checks",
+    "postgres: requires NEXUSFLOW_TEST_DATABASE_URL for an isolated test database",
 ]
 
 [tool.ruff]
@@ -56,7 +70,7 @@ select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["app", "libs", "workflows", "scripts/dev.py", "scripts/generate_definition_schema.py", "tests"]
+files = ["app", "apps", "libs", "workflows", "scripts/dev.py", "scripts/generate_definition_schema.py", "tests"]
 check_untyped_defs = true
 disallow_untyped_defs = true
 no_implicit_optional = true

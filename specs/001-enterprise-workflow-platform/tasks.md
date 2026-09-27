@@ -62,13 +62,26 @@ remain owner inputs for later service/deployment acceptance.
 
 **Independent Test**: Register/promote the sample definition, start through the API with an idempotency key, query status, and retrieve business history.
 
-- [ ] T015 [P] [US1] Define API request/response schemas in `specs/001-enterprise-workflow-platform/contracts/api.md` and `libs/contracts/`.
-- [ ] T016 [US1] Implement definition registry repository and lifecycle model under `apps/workflow-api/src/`.
-- [ ] T017 [US1] Implement execution metadata repository linking business executions to Temporal IDs under `apps/workflow-api/src/`.
-- [ ] T018 [US1] Implement versioned workflow endpoints in `apps/workflow-api/src/`.
-- [ ] T019 [US1] Add idempotent start, correlation, business reference, pagination, and problem responses.
-- [ ] T020 [P] [US1] Add API contract tests in `tests/contract/test_workflow_api.py`.
-- [ ] T021 [P] [US1] Add registry and API unit tests in `tests/unit/`.
+- [x] T015 [P] [US1] Define API request/response schemas in `specs/001-enterprise-workflow-platform/contracts/api.md` and `libs/contracts/`.
+- [x] T016 [US1] Implement definition registry repository and lifecycle model under `apps/workflow-api/src/`.
+- [x] T017 [US1] Implement execution metadata repository linking business executions to Temporal IDs under `apps/workflow-api/src/`.
+- [x] T018 [US1] Implement versioned workflow endpoints in `apps/workflow-api/src/`.
+- [x] T019 [US1] Add idempotent start, correlation, business reference, pagination, and problem responses.
+- [x] T020 [P] [US1] Add API contract tests in `tests/contract/test_workflow_api.py`.
+- [x] T021 [P] [US1] Add registry and API unit tests in `tests/unit/`.
+
+**API verification (2026-09-27)**: Implemented on
+`codex/phase-3-governed-workflow-api`, created from `feature/develop` at
+`c3ade4cf9380299eaaec7f8f638576d319707996`. The full suite passed 462 tests,
+including 49 HTTP contract tests, 6 real PostgreSQL migration/concurrency checks,
+5 real Temporal API scenarios, and the preserved prototype baseline. Ruff
+lint/format, mypy, schema drift, dependency lock/sync, wheel/source builds,
+archive inspection, wheel-only API imports and packaged migration upgrade passed.
+The API uses the existing worker through an adapter and rejects unsupported
+runtime features. Enterprise OIDC, independent workers, full human-task policy,
+and complete audit export remain in their assigned later phases. See
+[verification](../../docs/development/phase-3-verification.md) and
+[local walkthrough](../../docs/development/workflow-api.md).
 
 **Checkpoint**: A client can start, query, and inspect a governed workflow through `/api/v1`.
 
