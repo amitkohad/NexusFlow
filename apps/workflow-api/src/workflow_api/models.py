@@ -116,6 +116,9 @@ class ExecutionRow(ScopedModel, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failure_code: Mapped[str | None] = mapped_column(String(256))
     failure_summary: Mapped[str | None] = mapped_column(Text)
+    package_binding: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    observed_initial_build_id: Mapped[str | None] = mapped_column(String(128))
+    observed_current_build_id: Mapped[str | None] = mapped_column(String(128))
 
 
 class AuditRow(ScopedModel, Base):
@@ -142,3 +145,107 @@ class AuditRow(ScopedModel, Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     event_metadata: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, nullable=False)
     retention_class: Mapped[str] = mapped_column(String(64), nullable=False, default="standard")
+
+
+class PackageRow(ScopedModel, Base):
+    __tablename__ = "workflow_packages"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant", "business_domain", "application", "package_id", name="uq_package_scope"
+        ),
+        UniqueConstraint("deployment_name", name="uq_package_deployment_owner"),
+    )
+    row_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    package_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    document: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    deployment_name: Mapped[str | None] = mapped_column(String(128))
+
+
+class PackageReleaseRow(ScopedModel, Base):
+    __tablename__ = "workflow_package_releases"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant",
+            "business_domain",
+            "application",
+            "package_release_id",
+            name="uq_release_scope",
+        ),
+        UniqueConstraint(
+            "tenant",
+            "business_domain",
+            "application",
+            "package_id",
+            "package_version",
+            name="uq_package_version",
+        ),
+        UniqueConstraint(
+            "tenant",
+            "business_domain",
+            "application",
+            "deployment_name",
+            "build_id",
+            name="uq_package_build",
+        ),
+        UniqueConstraint("deployment_name", "build_id", name="uq_global_package_build"),
+    )
+    row_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    package_release_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    package_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    package_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    deployment_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    build_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    descriptor: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    manifest: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(256))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PackageEnvironmentRow(ScopedModel, Base):
+    __tablename__ = "workflow_package_environments"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant",
+            "business_domain",
+            "application",
+            "package_id",
+            "environment",
+            name="uq_package_environment",
+        ),
+    )
+    row_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    package_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    environment: Mapped[str] = mapped_column(String(128), nullable=False)
+    current_release_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    ramping_release_id: Mapped[str | None] = mapped_column(String(128))
+    ramp_percentage: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    routing_confirmed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    temporal_namespace: Mapped[str] = mapped_column(String(256), nullable=False)
+    queue_bindings: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False)
+
+
+class ExecutorPoolRow(ScopedModel, Base):
+    __tablename__ = "workflow_executor_pools"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant", "business_domain", "application", "pool_id", name="uq_executor_pool"
+        ),
+    )
+    row_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    pool_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    package_release_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    document: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class PackageQueueOwnerRow(Base):
+    __tablename__ = "workflow_package_queue_owners"
+    __table_args__ = (
+        UniqueConstraint("temporal_namespace", "task_queue", name="uq_package_queue_owner"),
+    )
+    row_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    temporal_namespace: Mapped[str] = mapped_column(String(256), nullable=False)
+    task_queue: Mapped[str] = mapped_column(String(256), nullable=False)
+    package_owner_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_packages.row_id"), nullable=False
+    )

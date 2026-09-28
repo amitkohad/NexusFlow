@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from contracts import (
@@ -16,6 +17,7 @@ from contracts import (
     DefinitionDependency,
     DefinitionDocument,
     ExecutionState,
+    PackageRuntimeStartRequest,
     RegisterDefinitionRequest,
     RuntimeContext,
     RuntimeProfile,
@@ -36,6 +38,8 @@ from workflows.common.catalog import (
 
 from .backend import BackendNotFound, BackendUnavailable, WorkflowBackend
 from .errors import ApiError
+from .package_backend import PackageBackend
+from .package_repository import PackageRepository
 from .repository import ExecutionRecord, WorkflowRepository
 from .security import Principal
 
@@ -105,7 +109,9 @@ class WorkflowService:
         try:
             document = validate_definition(
                 request.definition_document,
-                allowed_capabilities=LEGACY_CAPABILITIES,
+                allowed_capabilities=None
+                if self.runtime_profile == "package"
+                else LEGACY_CAPABILITIES,
                 max_steps=self.max_definition_steps,
             )
         except DefinitionValidationError as exc:
@@ -225,6 +231,28 @@ class WorkflowService:
                     "runtime_profile_mismatch",
                     "Promoted revision requires the governed runtime",
                 )
+            binding = None
+            if self.runtime_profile == "package":
+                packages = PackageRepository(self.repository)
+                binding = await asyncio.to_thread(
+                    packages.select_binding, principal.scope, definition, self.environment
+                )
+                actual = await cast(PackageBackend, self.backend).routing(
+                    binding.worker_deployment_name, binding.temporal_namespace
+                )
+                confirmed = await asyncio.to_thread(
+                    packages.confirm_routing,
+                    principal.scope,
+                    binding.package_id,
+                    self.environment,
+                    actual,
+                )
+                if not confirmed:
+                    raise ApiError(
+                        409,
+                        "routing_not_confirmed",
+                        "Reconcile Temporal routing before starting this workflow",
+                    )
             now = utcnow()
             record, created = await asyncio.to_thread(
                 self.repository.reserve_execution,
@@ -245,7 +273,10 @@ class WorkflowService:
                     started_at=now,
                     updated_at=now,
                     runtime_profile=self.runtime_profile,
-                    runtime_task_queue=self.runtime_task_queue,
+                    runtime_task_queue=binding.workflow_task_queue
+                    if binding
+                    else self.runtime_task_queue,
+                    package_binding=binding,
                 ),
             )
         assert record is not None
@@ -253,24 +284,41 @@ class WorkflowService:
         if submitted:
             # Never remove this reservation on a timeout. A retry submits the
             # same frozen revision and ID, and the runtime rejects duplicate IDs.
-            run_id = await self.backend.start(
-                record.workflow_id,
-                record.workflow_type,
-                record.definition_document,
-                record.request,
-                record.variables,
-                context=RuntimeContext(
-                    **record.scope.as_dict(),
-                    workflow_type=record.workflow_type,
-                    definition_id=record.definition_id,
-                    definition_version=record.definition_version,
-                    business_reference=record.business_reference,
-                    correlation_id=record.correlation_id,
-                    actor=record.created_by,
-                ),
-                runtime_profile=record.runtime_profile,
-                task_queue=record.runtime_task_queue,
+            context = RuntimeContext(
+                **record.scope.as_dict(),
+                workflow_type=record.workflow_type,
+                definition_id=record.definition_id,
+                definition_version=record.definition_version,
+                business_reference=record.business_reference,
+                correlation_id=record.correlation_id,
+                actor=record.created_by,
             )
+            if record.runtime_profile == "package":
+                if record.package_binding is None:
+                    raise ApiError(
+                        503, "runtime_binding_invalid", "Stored package provenance is unavailable"
+                    )
+                run_id = await cast(PackageBackend, self.backend).start_package(
+                    record.workflow_id,
+                    PackageRuntimeStartRequest(
+                        context=context,
+                        definition_document=record.definition_document,
+                        request=record.request,
+                        variables=record.variables,
+                        release_binding=record.package_binding,
+                    ),
+                )
+            else:
+                run_id = await self.backend.start(
+                    record.workflow_id,
+                    record.workflow_type,
+                    record.definition_document,
+                    record.request,
+                    record.variables,
+                    context=context,
+                    runtime_profile=record.runtime_profile,
+                    task_queue=record.runtime_task_queue,
+                )
             record = await asyncio.to_thread(
                 self.repository.mark_started, record.scope, record.workflow_id, run_id, utcnow()
             )
@@ -285,8 +333,34 @@ class WorkflowService:
         # Progress in the runtime's append-only transition prefix orders polls.
         # Request observation time breaks ties between equal progress snapshots.
         observed_at = utcnow()
-        snapshot = await self.backend.status(record.workflow_id, record.run_id)
-        return await asyncio.to_thread(
+        current_run_id = record.run_id
+        if record.runtime_profile == "package":
+            if record.package_binding is None:
+                raise ApiError(
+                    503, "runtime_binding_invalid", "Stored package provenance is unavailable"
+                )
+            runtime = cast(PackageBackend, self.backend)
+            current_run_id, snapshot = await runtime.status_package(
+                record.workflow_id, record.run_id
+            )
+            initial, current = await runtime.observe_package(
+                record.workflow_id, record.run_id, record.package_binding
+            )
+            packages = PackageRepository(self.repository)
+            await asyncio.to_thread(
+                packages.validate_observed_builds,
+                record.scope,
+                record.package_binding,
+                initial,
+                current,
+                record.observed_initial_build_id,
+            )
+            await asyncio.to_thread(
+                packages.observe_execution, record.scope, workflow_id, initial, current, observed_at
+            )
+        else:
+            snapshot = await self.backend.status(record.workflow_id, record.run_id)
+        updated = await asyncio.to_thread(
             self.repository.update_snapshot,
             record.scope,
             workflow_id,
@@ -297,6 +371,7 @@ class WorkflowService:
             snapshot.failure_code,
             snapshot.failure_summary,
         )
+        return replace(updated, run_id=current_run_id)
 
     async def signal(
         self, principal: Principal, workflow_id: str, request: SignalWorkflowRequest

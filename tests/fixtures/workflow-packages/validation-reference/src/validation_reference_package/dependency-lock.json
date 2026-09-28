@@ -1,0 +1,66 @@
+[
+  {
+    "name": "annotated-types",
+    "version": "0.8.0"
+  },
+  {
+    "name": "nexus-rpc",
+    "version": "1.4.0"
+  },
+  {
+    "name": "nexusflow-activities",
+    "version": "0.1.0"
+  },
+  {
+    "name": "nexusflow-common",
+    "version": "0.1.0"
+  },
+  {
+    "name": "nexusflow-contracts",
+    "version": "0.1.0"
+  },
+  {
+    "name": "nexusflow-workflow-executor",
+    "version": "0.1.0"
+  },
+  {
+    "name": "nexusflow-workflow-sdk",
+    "version": "0.1.0"
+  },
+  {
+    "name": "nexusflow-workflows",
+    "version": "0.1.0"
+  },
+  {
+    "name": "packaging",
+    "version": "26.3"
+  },
+  {
+    "name": "protobuf",
+    "version": "7.36.2"
+  },
+  {
+    "name": "pydantic",
+    "version": "2.13.5"
+  },
+  {
+    "name": "pydantic-core",
+    "version": "2.46.5"
+  },
+  {
+    "name": "temporalio",
+    "version": "1.33.0"
+  },
+  {
+    "name": "types-protobuf",
+    "version": "7.35.1.20260906"
+  },
+  {
+    "name": "typing-extensions",
+    "version": "4.16.0"
+  },
+  {
+    "name": "typing-inspection",
+    "version": "0.4.4"
+  }
+]

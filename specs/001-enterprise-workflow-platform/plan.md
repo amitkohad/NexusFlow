@@ -1,12 +1,12 @@
 # Implementation Plan: Enterprise Workflow Platform
 
-**Working Branch**: `codex/phase-4-runtime-independent-workers` (from `feature/develop`) | **Revised**: 2026-09-27 | **Spec**: [spec.md](spec.md)
+**Working Branch**: `codex/phase-4a-workflow-packages-generic-executors` (from `feature/develop`) | **Revised**: 2026-09-27 | **Spec**: [spec.md](spec.md)
 
 ## Status and scope
 
 Phases 1–4 (T001–T031) are implemented under the original capability-service architecture. Phase 4 runs shared `GovernedWorkflowV1` orchestration and five separately packaged capability workers. Its 601-test verification remains evidence for that implementation, not for the revised topology.
 
-The accepted target makes each business workflow package the unit of build, release, deployment, and capacity ownership. This is a documentation-only revision. Package manifests, a generic executor executable, release-aware routing, containers, and autoscaling are not implemented. [ADR 0006](../../docs/adr/0006-workflow-packages-and-executor-pools.md) supersedes ADR 0005's target ownership while preserving existing code and histories. New **Phase 4A, T078–T090**, bridges completed Phase 4 to the new target before Phase 5. Existing task IDs and completion evidence remain unchanged.
+The accepted target makes each business workflow package the unit of build, release, deployment, and capacity ownership. **Phase 4A, T078–T090, is implemented**: complete local artifacts, manifest validation, a generic executor, release-aware runtime/API routing, capacity configuration and migration/replay checks. Its full suite passed 802 tests; both packages passed isolated installation and real Temporal execution. See [verification evidence](../../docs/development/phase-4a-verification.md). Containers, controllers and cloud autoscaling remain later phases. [ADR 0006](../../docs/adr/0006-workflow-packages-and-executor-pools.md) supersedes ADR 0005's target ownership while preserving original code and histories. Existing task IDs and historical completion evidence remain unchanged.
 
 ## Summary
 
@@ -28,7 +28,7 @@ The API, registry, human-task service, business audit/persistence, and Temporal 
 | Capacity | Replicas and per-process task slots are distinct; pickup latency, backlog, slots, resources and downstream limits guide sizing |
 | Verification | Manifest/closure, unit, contract, real Temporal, replay, migration, multi-replica, image, Helm/controller, Terraform and CI checks |
 
-The current SDK meets Temporal's published Python minimum for modern Worker Versioning. Production Server/CLI/UI/Worker Controller versions must be selected and verified together before infrastructure deployment. Local CLI compatibility does not establish production compatibility. This revision changes no dependency or application code.
+The current SDK meets Temporal's published Python minimum for modern Worker Versioning. Local verification used SDK 1.33.0, CLI 1.9.1 and Server 1.32.0. Production Server/CLI/UI/Worker Controller versions must be selected and verified together before infrastructure deployment. Local CLI compatibility does not establish production compatibility.
 
 ## Constitution check
 
@@ -40,7 +40,8 @@ The current SDK meets Temporal's published Python minimum for modern Worker Vers
 - Safe releases: version routing, per-type lifetime policies, replay evidence and legacy compatibility.
 - Simplicity: combined pool by default; additional pools need a resource/security/scaling reason.
 
-These are design checks. Executable conformance to the new model remains unverified until Phase 4A and the relevant later phases pass.
+The local package/runtime/executor checks pass in Phase 4A. Image, controller,
+autoscaling and cloud conformance remain unverified until their later phases pass.
 
 ## Deployment topology
 
@@ -96,20 +97,25 @@ The database transaction freezes the intended release and bounded eligible routi
 
 Declare versioning behavior per Workflow type. Short runs may be Pinned and retain their version until completion. Longer workflows choose Pinned with a supported explicit upgrade at a suitable Continue-As-New boundary, or Auto-Upgrade with patching/replay compatibility. Continue-As-New does not automatically unpin a run. Approval migration must preserve signal, task, schema and Activity compatibility.
 
+Phase 4A supports Pinned and compatible AutoUpgrade execution with inherited
+completed-step continuation. It rejects explicit Pinned Continue-As-New upgrade
+requests; approved override removal and advanced upgrade/remediation remain T044.
+
 Package Activity queues belong to the same Worker Deployment Version to preserve release correlation. Unrelated Activity deployments are independent dependencies outside the default complete-package guarantee; shared HTTP/database services remain external operational dependencies.
 
 Temporal Worker Controller is the preferred target for Kubernetes release lifecycle and per-version autoscaling; adopt it after compatibility verification. If the supported production combination cannot use it, document and verify an equivalent version-aware lifecycle adapter rather than claiming ordinary rolling replacement is sufficient. Controller resources own release Deployments; avoid conflicting manual Deployment/HPA ownership. Retire versions only after drainage checks and the retained-query/support policy. Business projections remain accessible independently of Temporal retention.
 
-## Planned implementation structure
+## Implementation structure and later planning paths
 
-These are planning paths, not new implementation directories:
+The package/API/runtime paths are implemented. Comments identify later services
+and deployment artifacts that remain planning paths:
 
 ```text
 apps/
-  workflow-api/                 # existing API, planned release binding extension
-  workflow-executor/            # planned generic process host
+  workflow-api/                 # governed API and package release/pool control plane
+  workflow-executor/            # generic installed-package process host
   human-task-service/           # planned shared durable task service
-  workflow-admin/
+  workflow-admin/               # planned
 workflow-packages/
   customer-adjustment/          # manifest, definition/code, locked dependencies
 libs/
@@ -117,13 +123,13 @@ libs/
   workflow-sdk/                 # reusable runtime, manifest/graph validation
   activities/                   # reusable named package-local Activity code
   common/                       # configuration, lifecycle, capacity
-  observability/
-  security/
+  observability/                # planned
+  security/                     # planned
 workflows/common/               # existing pure semantics retained/reused
 tests/fixtures/workflow-packages/validation-reference/
-deploy/helm/workflow-executor/   # reusable package/pool/controller templates
-platform/temporal/
-infrastructure/terraform/
+deploy/helm/workflow-executor/   # planned package/pool/controller templates
+platform/temporal/              # planned
+infrastructure/terraform/       # planned
 scripts/
 docs/
 ```
@@ -140,7 +146,7 @@ Preserve `app/`, `apps/workflow-runtime/`, `workers/*-worker/`, and version 1 ca
 | 2: Foundational Contracts | T007–T014 | Complete; typed contracts/pure semantics |
 | 3: Governed Workflow API | T015–T021 | Complete; API/registry/persistence |
 | 4: Original Runtime and Independent Workers | T022–T031 | Complete under superseded capability deployment model |
-| 4A: Workflow Packages and Generic Executors | T078–T090 | Next, unchecked; closure, host, bindings, capacity, version routing and migration |
+| 4A: Workflow Packages and Generic Executors | T078–T090 | Complete locally; closure, host, bindings, capacity, version routing and migration; 802 tests |
 | 5: Human Task Management | T032–T038 | Package handlers calling shared durable task service |
 | 6: Failure Handling and Operations | T039–T044 | Side-effect safety, remediation, long-running/history policy |
 | 7: Definition and Release Governance | T045–T048 | Definition/release compatibility, approval and promotion |

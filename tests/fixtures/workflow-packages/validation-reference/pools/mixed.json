@@ -1,0 +1,35 @@
+{
+  "pool_id": "validation-reference-mixed",
+  "package_id": "validation-reference",
+  "package_release_id": "validation-reference-0.1.0",
+  "environment": "local",
+  "temporal_namespace": "default",
+  "role": "mixed",
+  "worker_deployment_name": "nexusflow-validation-reference",
+  "build_id": "validation-reference-0.1.0",
+  "queue_bindings": {
+    "workflow": "validation-reference-tq",
+    "activities": "validation-reference-tq"
+  },
+  "replicas": 2,
+  "min_replicas": 1,
+  "max_replicas": 4,
+  "workflow_task_slots": 10,
+  "activity_task_slots": 10,
+  "workflow_task_pollers": 2,
+  "activity_task_pollers": 2,
+  "shutdown_grace_seconds": 30,
+  "resources": {
+    "requests": {
+      "cpu": "250m",
+      "memory": "256Mi"
+    },
+    "limits": {
+      "cpu": "1",
+      "memory": "512Mi"
+    }
+  },
+  "desired_state": "serving",
+  "observed_state": "pending",
+  "observed_replicas": 0
+}

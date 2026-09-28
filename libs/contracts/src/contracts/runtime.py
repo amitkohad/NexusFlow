@@ -10,7 +10,7 @@ from .base import ContractModel, Identifier, JsonObject, NonEmptyString
 from .definitions import DefinitionDocument
 from .domain import BusinessContext
 
-RuntimeProfile = Literal["legacy", "governed"]
+RuntimeProfile = Literal["legacy", "governed", "package"]
 
 
 class RuntimeContext(BusinessContext):

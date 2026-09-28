@@ -42,19 +42,25 @@ uv run --locked python scripts/dev.py test
 uv run --locked python scripts/dev.py lint
 uv run --locked python scripts/dev.py format
 uv run --locked python scripts/dev.py build
+uv run --locked python scripts/dev.py build-packages
 uv run --locked python scripts/dev.py docker-build
 ```
 
 GNU Make users can run `make dev`, `make test`, `make lint`, `make format`,
 `make build`, and `make docker-build`. Both entry points call the same runner.
 `dev` starts the existing worker; start `temporal server start-dev` separately.
-`lint` runs Ruff lint, Ruff format checks, mypy, and definition-schema drift checks;
+`lint` runs Ruff lint, Ruff format checks, mypy, and definition/package-schema drift checks;
 failed checks return nonzero.
 `build` creates a wheel and source distribution in ignored `dist/`, using the
 locked build tools without installing new build dependencies. No service
 reorganization is performed in this phase. The distribution now includes the
 shared contracts, SDK, configuration, and deterministic helpers from their
 planned source directories.
+
+`build-packages` builds complete immutable workflow wheelhouse archives, verifies
+offline installs, and runs the installed packages against local Temporal. Set
+`TEMPORAL_CLI_PATH` when the CLI is not on PATH. See
+[package setup](workflow-packages.md) for executor and operator API commands.
 
 `docker-build` deliberately exits with code 2 and explains that service Dockerfiles
 are deferred to T056. It is an initial entry point, not a completed image build.

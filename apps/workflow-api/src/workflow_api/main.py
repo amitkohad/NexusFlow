@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, cast
 
 from contracts import DefinitionDocument, JsonObject, RuntimeContext, RuntimeProfile
 from fastapi import FastAPI
@@ -12,8 +12,9 @@ from temporalio.client import Client
 from temporalio.contrib.pydantic import pydantic_data_converter
 
 from .api import PERMISSIONS, create_app
-from .backend import BackendUnavailable, BusinessSnapshot, TemporalBackend, WorkflowBackend
+from .backend import BackendUnavailable, BusinessSnapshot, WorkflowBackend
 from .config import load_api_settings
+from .package_backend import PackageBackend, PackageTemporalBackend
 from .repository import WorkflowRepository
 from .security import Principal, StaticTokenAuthenticator
 
@@ -66,6 +67,18 @@ class ConnectedBackend:
     async def ready(self) -> bool:
         return self.delegate is not None and await self.delegate.ready()
 
+    def __getattr__(self, name: str) -> Any:
+        if name in {
+            "start_package",
+            "inspect_release",
+            "route_release",
+            "routing",
+            "observe_package",
+            "status_package",
+        }:
+            return getattr(cast(PackageBackend, self.connected()), name)
+        raise AttributeError(name)
+
 
 def create_app_from_env() -> FastAPI:
     settings = load_api_settings()
@@ -104,7 +117,7 @@ def create_app_from_env() -> FastAPI:
                     tls=settings.temporal_tls,
                     data_converter=pydantic_data_converter,
                 )
-                backend.delegate = TemporalBackend(
+                backend.delegate = PackageTemporalBackend(
                     client, settings.temporal_task_queue, runtime_profile=settings.runtime_profile
                 )
             except Exception:

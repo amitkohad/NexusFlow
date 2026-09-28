@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "nexusflow-workflow-sdk"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["nexusflow-contracts==0.1.0", "nexusflow-common==0.1.0", "nexusflow-workflows==0.1.0"]
+dependencies = ["nexusflow-contracts==0.1.0", "nexusflow-common==0.1.0", "nexusflow-workflows==0.1.0", "packaging>=26,<27"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/workflow_sdk"]
