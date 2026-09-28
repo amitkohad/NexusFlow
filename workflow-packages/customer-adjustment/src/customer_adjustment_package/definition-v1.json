@@ -1,0 +1,145 @@
+{
+  "schema_version": "1.0",
+  "process_id": null,
+  "workflow_name": "customer-adjustment",
+  "request": {},
+  "variables": {},
+  "start_at": "validate",
+  "steps": {
+    "validate": {
+      "type": "activity",
+      "capability": "validate_request",
+      "input": {},
+      "timeout_seconds": 10,
+      "retry": {
+        "maximum_attempts": 3,
+        "initial_interval_seconds": 1,
+        "maximum_interval_seconds": 10,
+        "backoff_coefficient": 2,
+        "non_retryable_error_types": [
+          "ValidationError",
+          "BusinessError",
+          "AuthorizationError"
+        ]
+      },
+      "compensation": null,
+      "task_queue": "activities",
+      "contract_version": "1.0",
+      "next": "risk"
+    },
+    "risk": {
+      "type": "activity",
+      "capability": "risk_check",
+      "input": {},
+      "timeout_seconds": 10,
+      "retry": {
+        "maximum_attempts": 3,
+        "initial_interval_seconds": 1,
+        "maximum_interval_seconds": 10,
+        "backoff_coefficient": 2,
+        "non_retryable_error_types": [
+          "ValidationError",
+          "BusinessError",
+          "AuthorizationError"
+        ]
+      },
+      "compensation": null,
+      "task_queue": "activities",
+      "contract_version": "1.0",
+      "next": "route"
+    },
+    "route": {
+      "type": "decision",
+      "field": "results.risk.risk_score",
+      "operator": "<=",
+      "value": 50,
+      "on_true": "post",
+      "on_false": "manager_approval"
+    },
+    "manager_approval": {
+      "type": "approval",
+      "assignee_group": "operations-managers",
+      "timeout_seconds": 300,
+      "on_approved": "post",
+      "on_rejected": "record_rejection",
+      "on_timeout": "timed_out"
+    },
+    "post": {
+      "type": "activity",
+      "capability": "post_adjustment",
+      "input": {},
+      "timeout_seconds": 10,
+      "retry": {
+        "maximum_attempts": 3,
+        "initial_interval_seconds": 1,
+        "maximum_interval_seconds": 10,
+        "backoff_coefficient": 2,
+        "non_retryable_error_types": [
+          "ValidationError",
+          "BusinessError",
+          "AuthorizationError"
+        ]
+      },
+      "compensation": null,
+      "task_queue": "activities",
+      "contract_version": "1.0",
+      "next": "notify"
+    },
+    "notify": {
+      "type": "activity",
+      "capability": "send_notification",
+      "input": {
+        "channel": "email"
+      },
+      "timeout_seconds": 30,
+      "retry": {
+        "maximum_attempts": 3,
+        "initial_interval_seconds": 1,
+        "maximum_interval_seconds": 10,
+        "backoff_coefficient": 2,
+        "non_retryable_error_types": [
+          "ValidationError",
+          "BusinessError",
+          "AuthorizationError"
+        ]
+      },
+      "compensation": null,
+      "task_queue": "activities",
+      "contract_version": "1.0",
+      "next": "completed"
+    },
+    "record_rejection": {
+      "type": "activity",
+      "capability": "record_rejection",
+      "input": {},
+      "timeout_seconds": 30,
+      "retry": {
+        "maximum_attempts": 3,
+        "initial_interval_seconds": 1,
+        "maximum_interval_seconds": 10,
+        "backoff_coefficient": 2,
+        "non_retryable_error_types": [
+          "ValidationError",
+          "BusinessError",
+          "AuthorizationError"
+        ]
+      },
+      "compensation": null,
+      "task_queue": "activities",
+      "contract_version": "1.0",
+      "next": "rejected"
+    },
+    "completed": {
+      "type": "end",
+      "outcome": "COMPLETED"
+    },
+    "rejected": {
+      "type": "end",
+      "outcome": "REJECTED"
+    },
+    "timed_out": {
+      "type": "end",
+      "outcome": "TIMED_OUT"
+    }
+  }
+}

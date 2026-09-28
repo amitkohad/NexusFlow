@@ -50,9 +50,6 @@ async def test_worker_shutdown_drains_inflight_activity_before_closing_probes() 
         pytest.fail(
             "Worker shutdown integration requires a local Temporal CLI; it downloads no binaries"
         )
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        probe_port = reservation.getsockname()[1]
     started = asyncio.Event()
     release = asyncio.Event()
     completed = asyncio.Event()
@@ -76,6 +73,10 @@ async def test_worker_shutdown_drains_inflight_activity_before_closing_probes() 
         ui=False,
         data_converter=pydantic_data_converter,
     ) as environment:
+        # Temporal allocates several dynamic ports; select probes afterwards.
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            probe_port = reservation.getsockname()[1]
         settings = load_worker_settings(
             "validation-worker",
             "validation-tq",

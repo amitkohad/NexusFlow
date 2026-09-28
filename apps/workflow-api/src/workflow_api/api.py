@@ -53,6 +53,10 @@ PERMISSIONS = frozenset(
         "workflows:start",
         "workflows:signal",
         "workflows:cancel",
+        "packages:read",
+        "packages:write",
+        "packages:approve",
+        "packages:deploy",
     }
 )
 PageLimit = Annotated[int, Query(ge=1, le=100)]
@@ -84,9 +88,9 @@ def create_app(
     if environment not in {"local", "test"} and isinstance(authenticator, StaticTokenAuthenticator):
         raise ValueError("Static token authentication is limited to local/test environments")
     provider = authenticator if authenticator is not None else DenyAuthenticator()
-    if runtime_profile not in {"governed", "legacy"}:
+    if runtime_profile not in {"governed", "legacy", "package"}:
         raise ValueError("Unsupported runtime profile")
-    if runtime_profile == "governed" and not 1 <= max_definition_steps <= 500:
+    if runtime_profile in {"governed", "package"} and not 1 <= max_definition_steps <= 500:
         raise ValueError("Version 1 runtime supports at most 500 steps")
     service = WorkflowService(
         repository,
@@ -404,4 +408,7 @@ def create_app(
         record = await service.cancel(principal, workflow_id, body.reason)
         return CancelResponse(workflow_id=workflow_id, correlation_id=record.correlation_id)
 
+    from .package_api import register_package_routes
+
+    register_package_routes(app, repository, backend, require, environment)
     return app

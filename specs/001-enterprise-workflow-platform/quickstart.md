@@ -1,10 +1,14 @@
-# Planning Quickstart
+# Local Development Quickstart
 
-The current executable baseline is Phase 4. The accepted workflow-package topology
-in [ADR 0006](../../docs/adr/0006-workflow-packages-and-executor-pools.md) is planned
-work; this document keeps current checks distinct from its future acceptance path.
+The current executable baseline includes Phase 4A workflow packages and generic
+executors, following
+[ADR 0006](../../docs/adr/0006-workflow-packages-and-executor-pools.md).
+The original Phase 4 services remain available for existing histories; container
+and cloud deployment are later phases. See
+[Phase 4A verification](../../docs/development/phase-4a-verification.md) for the
+802-test result and installed-artifact checks.
 
-## Current Phase 4 validation
+## Original Phase 4 validation
 
 Follow the verified [runtime and worker walkthrough](../../docs/development/runtime-workers.md)
 and [API walkthrough](../../docs/development/workflow-api.md) for exact launch commands.
@@ -30,9 +34,18 @@ checks require an isolated `NEXUSFLOW_TEST_DATABASE_URL`. The current build scri
 verifies Phase 4 service wheels, not complete workflow-package images. Existing
 runtime profiles and queues remain unchanged for their histories.
 
-## Planned Phase 4A package acceptance
+## Phase 4A package acceptance
 
-These are acceptance steps for T078–T090, not available launch commands:
+The local package/executor implementation is available. Build and verify it with:
+
+```text
+uv run --locked python scripts/build_workflow_packages.py --verify
+```
+
+See [package setup](../../docs/development/workflow-packages.md) for installed
+launch commands, role pools and privileged release admission, and
+[migration mapping](../../docs/operations/package-migration.md) for coexistence
+and rollback. OCI images/controllers remain Phase 9. The acceptance sequence is:
 
 1. Build one immutable Customer Adjustment package containing its pinned definition,
    runtime, complete Activity registrations, contracts and locked dependencies.
@@ -50,12 +63,13 @@ These are acceptance steps for T078–T090, not available launch commands:
 6. Add another compatible executor replica and exercise shutdown/downscale while
    work continues. Verify per-process concurrency separately from replica count.
 7. Run a second package on separate queues and demonstrate independent capacity.
-8. Run optional Workflow-only/Activity-only pools from the same image and release,
+8. Run optional Workflow-only/Activity-only pools from the same artifact and release,
    where isolation warrants them; verify version-correlated Activity routing.
 9. Exercise versioned old/new release coexistence, an open approval/timer, replay,
    promotion, pending start recovery and rollback. Declare and test the workflow's
-   Pinned retention, Auto-Upgrade or Pinned-with-Continue-As-New upgrade policy;
-   verify that a continuation changes release only when explicitly configured.
+   Pinned retention or Auto-Upgrade policy. Completed-step continuation currently
+   inherits version policy; explicit Pinned upgrades are rejected pending T044's
+   approved override-removal operations.
    An upgraded release must preserve the old exact definition/hash and its full
    handler/contract closure rather than silently replacing it with a newer revision.
 10. Run legacy and Phase 4 executions alongside package runs without rewriting

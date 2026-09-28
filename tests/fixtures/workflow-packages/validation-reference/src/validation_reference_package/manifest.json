@@ -1,0 +1,147 @@
+{
+  "schema_version": "1.0",
+  "package_id": "validation-reference",
+  "package_version": "0.1.0",
+  "build_id": "validation-reference-0.1.0",
+  "worker_deployment_name": "nexusflow-validation-reference",
+  "definitions": [
+    {
+      "definition_id": "validation-reference-definition",
+      "workflow_type": "validation-reference",
+      "version": "1.0",
+      "content_hash": "ffac3d107777456375d4a78ce166907618fa20f87cbd96008c8d9a705d73cce5",
+      "definition_document": {
+        "schema_version": "1.0",
+        "process_id": null,
+        "workflow_name": "validation-reference",
+        "request": {},
+        "variables": {},
+        "start_at": "validate",
+        "steps": {
+          "validate": {
+            "type": "activity",
+            "capability": "validate_request",
+            "input": {},
+            "timeout_seconds": 30,
+            "retry": {
+              "maximum_attempts": 3,
+              "initial_interval_seconds": 1,
+              "maximum_interval_seconds": 10,
+              "backoff_coefficient": 2,
+              "non_retryable_error_types": [
+                "ValidationError",
+                "BusinessError",
+                "AuthorizationError"
+              ]
+            },
+            "compensation": null,
+            "task_queue": "activities",
+            "contract_version": "1.0",
+            "next": "done"
+          },
+          "done": {
+            "type": "end",
+            "outcome": "COMPLETED"
+          }
+        }
+      },
+      "runtime_workflow_type": "PackageWorkflowV1"
+    }
+  ],
+  "workflow_registrations": [
+    {
+      "name": "PackageWorkflowV1",
+      "entrypoint": "workflow_sdk.runtime:PackageWorkflowV1",
+      "logical_queue": "workflow",
+      "versioning_behavior": "pinned",
+      "continue_as_new_policy": "inherit"
+    }
+  ],
+  "activity_registrations": [
+    {
+      "capability": "validate_request",
+      "activity_name": "validate_request.pkg.v1",
+      "contract_version": "1.0",
+      "entrypoint": "nexusflow_activities:validate_request",
+      "logical_queue": "activities"
+    }
+  ],
+  "queues": [
+    {
+      "name": "workflow",
+      "role": "workflow"
+    },
+    {
+      "name": "activities",
+      "role": "activity"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "annotated-types",
+      "version": "0.8.0"
+    },
+    {
+      "name": "nexus-rpc",
+      "version": "1.4.0"
+    },
+    {
+      "name": "nexusflow-activities",
+      "version": "0.1.0"
+    },
+    {
+      "name": "nexusflow-common",
+      "version": "0.1.0"
+    },
+    {
+      "name": "nexusflow-contracts",
+      "version": "0.1.0"
+    },
+    {
+      "name": "nexusflow-workflow-executor",
+      "version": "0.1.0"
+    },
+    {
+      "name": "nexusflow-workflow-sdk",
+      "version": "0.1.0"
+    },
+    {
+      "name": "nexusflow-workflows",
+      "version": "0.1.0"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3"
+    },
+    {
+      "name": "protobuf",
+      "version": "7.36.2"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.5"
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.46.5"
+    },
+    {
+      "name": "temporalio",
+      "version": "1.33.0"
+    },
+    {
+      "name": "types-protobuf",
+      "version": "7.35.1.20260906"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0"
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4"
+    }
+  ],
+  "dependency_lock_hash": "e2879e81bab2c6a50e5fe1adb951d307df5bc6a7b27de6be47f19cd47fc13af2",
+  "secret_references": []
+}

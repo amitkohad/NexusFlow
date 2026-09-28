@@ -1,18 +1,20 @@
 # ADR 0006: Workflow packages and generic executor pools
 
-- Status: Accepted target architecture; implementation pending Phase 4A
+- Status: Accepted; local package/executor foundation implemented in Phase 4A
 - Date: 2026-09-27
 - Supersedes: ADR 0005 for future deployment and release ownership
 - Preserves: ADR 0003 hosting direction and Phase 4 history compatibility
 
 ## Context
 
-Phase 4 currently deploys a shared orchestration runtime and five independently
+The original Phase 4 deploys a shared orchestration runtime and five independently
 packaged capability workers. Typed envelopes correlate their executions but do
 not bind a business workflow and its executable dependencies to one release.
 The user requires each workflow to be independently deployable with its dependent
 Activities, and generic worker replicas that can scale for that workflow's volume.
-This decision updates specifications only; existing code remains the Phase 4 model.
+Phase 4A now implements the local package/executor foundation. The original
+services remain available for existing histories; cloud deployment remains later
+work. See [verification](../development/phase-4a-verification.md).
 
 ## Decision
 
@@ -31,9 +33,9 @@ embedded in the image's own manifest, avoiding circular self-digests. Secret val
 replica counts, and environment-specific namespace bindings remain runtime/deployment
 configuration rather than immutable application content.
 
-Proposed planning paths are `workflow-packages/customer-adjustment/` for the first
+Implemented paths are `workflow-packages/customer-adjustment/` for the first
 package, `apps/workflow-executor/` for the generic host, and `libs/activities/` for
-reusable Activity implementations. These paths do not exist as completed services.
+reusable Activity implementations.
 Shared Activity libraries are assembled into each consuming package at build time;
 there is no mandatory separately released validation, notification, integration,
 or human-task Activity-worker dependency.

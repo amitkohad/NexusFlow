@@ -30,7 +30,7 @@ class ApiSettings(WorkerSettings):
             raise ValueError("Invalid business database URL") from None
         if driver not in {"sqlite", "postgresql+psycopg"}:
             raise ValueError("Use sqlite or postgresql+psycopg for the business database")
-        if self.runtime_profile == "governed" and self.max_definition_steps > 500:
+        if self.runtime_profile in {"governed", "package"} and self.max_definition_steps > 500:
             raise ValueError("Version 1 runtime supports at most 500 steps")
         if self.environment == "prod" and driver != "postgresql+psycopg":
             raise ValueError("Production requires PostgreSQL")

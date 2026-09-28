@@ -1,0 +1,35 @@
+{
+  "pool_id": "customer-adjustment-activity",
+  "package_id": "customer-adjustment",
+  "package_release_id": "customer-adjustment-0.1.0",
+  "environment": "local",
+  "temporal_namespace": "default",
+  "role": "activity",
+  "worker_deployment_name": "nexusflow-customer-adjustment",
+  "build_id": "customer-adjustment-0.1.0",
+  "queue_bindings": {
+    "workflow": "customer-adjustment-workflow-tq",
+    "activities": "customer-adjustment-activities-tq"
+  },
+  "replicas": 2,
+  "min_replicas": 1,
+  "max_replicas": 4,
+  "workflow_task_slots": 10,
+  "activity_task_slots": 10,
+  "workflow_task_pollers": 2,
+  "activity_task_pollers": 2,
+  "shutdown_grace_seconds": 30,
+  "resources": {
+    "requests": {
+      "cpu": "250m",
+      "memory": "256Mi"
+    },
+    "limits": {
+      "cpu": "1",
+      "memory": "512Mi"
+    }
+  },
+  "desired_state": "serving",
+  "observed_state": "pending",
+  "observed_replicas": 0
+}

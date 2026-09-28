@@ -1,0 +1,795 @@
+{
+  "$comment": "Syntax only; use workflow_sdk.packages.validate_manifest for hashes, trusted registrations and dependency closure.",
+  "$defs": {
+    "ActivityRegistration": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Activity Name",
+          "type": "string"
+        },
+        "capability": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "contract_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "entrypoint": {
+          "maxLength": 256,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Entrypoint",
+          "type": "string"
+        },
+        "logical_queue": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Logical Queue",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability",
+        "activity_name",
+        "entrypoint",
+        "logical_queue"
+      ],
+      "title": "ActivityRegistration",
+      "type": "object"
+    },
+    "ActivityStep": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "compensation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CompensationPolicyModel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "contract_version": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contract Version"
+        },
+        "input": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Input",
+          "type": "object"
+        },
+        "next": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Next",
+          "type": "string"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicyModel"
+        },
+        "task_queue": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Queue"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "exclusiveMinimum": 0,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "activity",
+          "default": "activity",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability",
+        "next"
+      ],
+      "title": "ActivityStep",
+      "type": "object"
+    },
+    "ApprovalStep": {
+      "additionalProperties": false,
+      "properties": {
+        "assignee_group": {
+          "default": "approvers",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Assignee Group",
+          "type": "string"
+        },
+        "on_approved": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On Approved",
+          "type": "string"
+        },
+        "on_rejected": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On Rejected",
+          "type": "string"
+        },
+        "on_timeout": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On Timeout",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "exclusiveMinimum": 0,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "approval",
+          "default": "approval",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "on_approved",
+        "on_rejected",
+        "on_timeout"
+      ],
+      "title": "ApprovalStep",
+      "type": "object"
+    },
+    "CompensationPolicyModel": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "contract_version": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contract Version"
+        },
+        "input": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Input",
+          "type": "object"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicyModel"
+        },
+        "task_queue": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Queue"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "exclusiveMinimum": 0,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "capability"
+      ],
+      "title": "CompensationPolicyModel",
+      "type": "object"
+    },
+    "DecisionStep": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "pattern": "^(?:[A-Za-z_][A-Za-z0-9_-]*|0|[1-9][0-9]*)(\\.(?:[A-Za-z_][A-Za-z0-9_-]*|0|[1-9][0-9]*))*$",
+          "title": "Field",
+          "type": "string"
+        },
+        "on_false": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On False",
+          "type": "string"
+        },
+        "on_true": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "On True",
+          "type": "string"
+        },
+        "operator": {
+          "default": "==",
+          "enum": [
+            "==",
+            "!=",
+            ">",
+            ">=",
+            "<",
+            "<=",
+            "in"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "type": {
+          "const": "decision",
+          "default": "decision",
+          "title": "Type",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "field",
+        "value",
+        "on_true",
+        "on_false"
+      ],
+      "title": "DecisionStep",
+      "type": "object"
+    },
+    "DefinitionDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "process_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Process Id"
+        },
+        "request": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Request",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "start_at": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Start At",
+          "type": "string"
+        },
+        "steps": {
+          "minProperties": 1,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_-]*$": {
+              "discriminator": {
+                "mapping": {
+                  "activity": "#/$defs/ActivityStep",
+                  "approval": "#/$defs/ApprovalStep",
+                  "decision": "#/$defs/DecisionStep",
+                  "end": "#/$defs/EndStep",
+                  "timer": "#/$defs/TimerStep"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ActivityStep"
+                },
+                {
+                  "$ref": "#/$defs/DecisionStep"
+                },
+                {
+                  "$ref": "#/$defs/ApprovalStep"
+                },
+                {
+                  "$ref": "#/$defs/TimerStep"
+                },
+                {
+                  "$ref": "#/$defs/EndStep"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Steps",
+          "type": "object"
+        },
+        "variables": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Variables",
+          "type": "object"
+        },
+        "workflow_name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workflow Name"
+        }
+      },
+      "required": [
+        "start_at",
+        "steps"
+      ],
+      "title": "DefinitionDocument",
+      "type": "object"
+    },
+    "EndStep": {
+      "additionalProperties": false,
+      "properties": {
+        "outcome": {
+          "$ref": "#/$defs/TerminalOutcome",
+          "default": "COMPLETED"
+        },
+        "type": {
+          "const": "end",
+          "default": "end",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "EndStep",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "LockedDependency": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 64,
+          "pattern": "^[0-9]+(?:\\.[0-9]+)*(?:[a-z][a-z0-9.]*)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "LockedDependency",
+      "type": "object"
+    },
+    "LogicalQueue": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "workflow",
+            "activity"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "role"
+      ],
+      "title": "LogicalQueue",
+      "type": "object"
+    },
+    "PackageDefinitionRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "definition_document": {
+          "$ref": "#/$defs/DefinitionDocument"
+        },
+        "definition_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Definition Id",
+          "type": "string"
+        },
+        "runtime_workflow_type": {
+          "default": "PackageWorkflowV1",
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Runtime Workflow Type",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Version",
+          "type": "string"
+        },
+        "workflow_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Workflow Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "definition_id",
+        "workflow_type",
+        "version",
+        "content_hash",
+        "definition_document"
+      ],
+      "title": "PackageDefinitionRevision",
+      "type": "object"
+    },
+    "RetryPolicyModel": {
+      "additionalProperties": false,
+      "properties": {
+        "backoff_coefficient": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 2,
+          "ge": 1,
+          "title": "Backoff Coefficient"
+        },
+        "initial_interval_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 1,
+          "gt": 0,
+          "title": "Initial Interval Seconds"
+        },
+        "maximum_attempts": {
+          "default": 3,
+          "exclusiveMinimum": 0,
+          "title": "Maximum Attempts",
+          "type": "integer"
+        },
+        "maximum_interval_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 10,
+          "gt": 0,
+          "title": "Maximum Interval Seconds"
+        },
+        "non_retryable_error_types": {
+          "default": [
+            "ValidationError",
+            "BusinessError",
+            "AuthorizationError"
+          ],
+          "items": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Non Retryable Error Types",
+          "type": "array"
+        }
+      },
+      "title": "RetryPolicyModel",
+      "type": "object"
+    },
+    "TerminalOutcome": {
+      "enum": [
+        "COMPLETED",
+        "REJECTED",
+        "TIMED_OUT",
+        "CANCELLED",
+        "FAILED"
+      ],
+      "title": "TerminalOutcome",
+      "type": "string"
+    },
+    "TimerStep": {
+      "additionalProperties": false,
+      "properties": {
+        "next": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Next",
+          "type": "string"
+        },
+        "seconds": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "timer",
+          "default": "timer",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "next"
+      ],
+      "title": "TimerStep",
+      "type": "object"
+    },
+    "WorkflowRegistration": {
+      "additionalProperties": false,
+      "properties": {
+        "continue_as_new_policy": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "explicit_upgrade"
+          ],
+          "title": "Continue As New Policy",
+          "type": "string"
+        },
+        "entrypoint": {
+          "maxLength": 256,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Entrypoint",
+          "type": "string"
+        },
+        "logical_queue": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Logical Queue",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "versioning_behavior": {
+          "default": "pinned",
+          "enum": [
+            "pinned",
+            "auto_upgrade"
+          ],
+          "title": "Versioning Behavior",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "entrypoint",
+        "logical_queue"
+      ],
+      "title": "WorkflowRegistration",
+      "type": "object"
+    }
+  },
+  "$id": "urn:nexusflow:workflow-package-manifest:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activity_registrations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ActivityRegistration"
+      },
+      "maxItems": 1000,
+      "title": "Activity Registrations",
+      "type": "array"
+    },
+    "build_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+      "title": "Build Id",
+      "type": "string"
+    },
+    "definitions": {
+      "items": {
+        "$ref": "#/$defs/PackageDefinitionRevision"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Definitions",
+      "type": "array"
+    },
+    "dependencies": {
+      "items": {
+        "$ref": "#/$defs/LockedDependency"
+      },
+      "maxItems": 1000,
+      "minItems": 1,
+      "title": "Dependencies",
+      "type": "array"
+    },
+    "dependency_lock_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dependency Lock Hash"
+    },
+    "package_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+      "title": "Package Id",
+      "type": "string"
+    },
+    "package_version": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+      "title": "Package Version",
+      "type": "string"
+    },
+    "queues": {
+      "items": {
+        "$ref": "#/$defs/LogicalQueue"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Queues",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "secret_references": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Secret References",
+      "type": "array"
+    },
+    "worker_deployment_name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+      "title": "Worker Deployment Name",
+      "type": "string"
+    },
+    "workflow_registrations": {
+      "items": {
+        "$ref": "#/$defs/WorkflowRegistration"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Workflow Registrations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "package_id",
+    "package_version",
+    "build_id",
+    "worker_deployment_name",
+    "definitions",
+    "workflow_registrations",
+    "queues",
+    "dependencies"
+  ],
+  "title": "PackageManifest",
+  "type": "object"
+}

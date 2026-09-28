@@ -8,10 +8,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from _thread import RLock
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, TypedDict
+from types import TracebackType
+from typing import Any, Self, TypedDict, cast
 from uuid import uuid4
+from weakref import WeakKeyDictionary
 
 from contracts import (
     AuditEvent,
@@ -20,6 +24,7 @@ from contracts import (
     DefinitionStatus,
     ExecutionState,
     JsonObject,
+    PackageExecutionBinding,
     RuntimeProfile,
     WorkflowDefinition,
 )
@@ -32,7 +37,15 @@ from sqlalchemy.sql.elements import ColumnElement
 from workflow_sdk.definitions import DefinitionValidationError, validate_definition
 
 from .errors import ApiError
-from .models import AuditRow, Base, DefinitionRow, ExecutionRow, PromotionRow, ScopedModel
+from .models import (
+    AuditRow,
+    Base,
+    DefinitionRow,
+    ExecutionRow,
+    PackageReleaseRow,
+    PromotionRow,
+    ScopedModel,
+)
 
 TERMINAL_STATES = {
     ExecutionState.COMPLETED,
@@ -41,6 +54,36 @@ TERMINAL_STATES = {
     ExecutionState.CANCELLED,
     ExecutionState.FAILED,
 }
+
+_SQLITE_LOCKS: WeakKeyDictionary[Engine, RLock] = WeakKeyDictionary()
+_SQLITE_LOCKS_GUARD = RLock()
+
+
+class _SQLiteSession(Session):
+    """Serialize local transactions, including the shared StaticPool connection.
+
+    PostgreSQL keeps independent sessions and database row locking. SQLite cannot
+    safely upgrade concurrent readers to writers within this local API process.
+    """
+
+    def __init__(self, *args: Any, repository_lock: RLock, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._repository_lock = repository_lock
+
+    def __enter__(self) -> Self:
+        self._repository_lock.acquire()
+        return super().__enter__()
+
+    def __exit__(
+        self,
+        kind: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        try:
+            super().__exit__(kind, value, traceback)
+        finally:
+            self._repository_lock.release()
 
 
 class ScopeFields(TypedDict):
@@ -88,6 +131,9 @@ class ExecutionRecord:
     completed_at: datetime | None = None
     failure_code: str | None = None
     failure_summary: str | None = None
+    package_binding: PackageExecutionBinding | None = None
+    observed_initial_build_id: str | None = None
+    observed_current_build_id: str | None = None
 
 
 def _utc(value: datetime | None) -> datetime | None:
@@ -131,7 +177,7 @@ def _definition(row: DefinitionRow) -> WorkflowDefinition:
 
 
 def _execution(row: ExecutionRow) -> ExecutionRecord:
-    if row.runtime_profile not in {"legacy", "governed"}:
+    if row.runtime_profile not in {"legacy", "governed", "package"}:
         raise ApiError(503, "runtime_binding_invalid", "Execution runtime binding is unavailable")
     return ExecutionRecord(
         workflow_id=row.workflow_id,
@@ -148,7 +194,7 @@ def _execution(row: ExecutionRow) -> ExecutionRecord:
         request_fingerprint=row.request_fingerprint,
         created_by=row.created_by,
         state=ExecutionState(row.state),
-        runtime_profile="governed" if row.runtime_profile == "governed" else "legacy",
+        runtime_profile=cast(RuntimeProfile, row.runtime_profile),
         runtime_task_queue=row.runtime_task_queue,
         run_id=row.run_id,
         current_step=row.current_step,
@@ -157,6 +203,11 @@ def _execution(row: ExecutionRow) -> ExecutionRecord:
         completed_at=_utc(row.completed_at),
         failure_code=row.failure_code,
         failure_summary=row.failure_summary,
+        package_binding=PackageExecutionBinding.model_validate(row.package_binding)
+        if row.package_binding
+        else None,
+        observed_initial_build_id=row.observed_initial_build_id,
+        observed_current_build_id=row.observed_current_build_id,
     )
 
 
@@ -196,7 +247,14 @@ class WorkflowRepository:
             self.engine = engine_or_url
         if self.engine.dialect.name == "sqlite":
             event.listen(self.engine, "connect", self._sqlite_foreign_keys)
-        self.sessions = sessionmaker(self.engine, expire_on_commit=False)
+        session_options: dict[str, Any] = {}
+        self._sqlite_lock: RLock | None = None
+        if self.engine.dialect.name == "sqlite":
+            with _SQLITE_LOCKS_GUARD:
+                repository_lock = _SQLITE_LOCKS.setdefault(self.engine, RLock())
+            self._sqlite_lock = repository_lock
+            session_options.update(class_=_SQLiteSession, repository_lock=repository_lock)
+        self.sessions = sessionmaker(self.engine, expire_on_commit=False, **session_options)
 
     @staticmethod
     def _sqlite_foreign_keys(connection: Any, connection_record: Any) -> None:
@@ -204,7 +262,8 @@ class WorkflowRepository:
 
     def create_schema(self) -> None:
         """Local/test convenience; deployment uses the versioned Alembic migration."""
-        Base.metadata.create_all(self.engine)
+        with self._sqlite_lock or nullcontext():
+            Base.metadata.create_all(self.engine)
 
     def close(self) -> None:
         self.engine.dispose()
@@ -212,7 +271,7 @@ class WorkflowRepository:
     def ping(self) -> bool:
         """Readiness requires the control-plane schema as well as connectivity."""
         try:
-            with self.engine.connect() as connection:
+            with self._sqlite_lock or nullcontext(), self.engine.connect() as connection:
                 present = set(inspect(connection).get_table_names())
                 inspector = inspect(connection)
                 return set(Base.metadata.tables).issubset(present) and all(
@@ -442,6 +501,11 @@ class WorkflowRepository:
             completed_at=record.completed_at,
             failure_code=record.failure_code,
             failure_summary=record.failure_summary,
+            package_binding=record.package_binding.model_dump(mode="json")
+            if record.package_binding
+            else None,
+            observed_initial_build_id=record.observed_initial_build_id,
+            observed_current_build_id=record.observed_current_build_id,
         )
         try:
             with self.sessions.begin() as session:
@@ -452,6 +516,37 @@ class WorkflowRepository:
                     raise ApiError(
                         409, "definition_mismatch", "Execution references another definition"
                     )
+                if record.runtime_profile == "package":
+                    binding = record.package_binding
+                    if (
+                        binding is None
+                        or binding.definition_content_hash != definition.content_hash
+                    ):
+                        raise ApiError(
+                            409,
+                            "package_definition_mismatch",
+                            "Package reservation requires the exact governed definition content",
+                        )
+                    release = session.scalar(
+                        select(PackageReleaseRow)
+                        .where(
+                            *_scope(PackageReleaseRow, record.scope),
+                            PackageReleaseRow.package_release_id == binding.package_release_id,
+                        )
+                        .with_for_update()
+                    )
+                    if (
+                        release is None
+                        or release.status != "approved"
+                        or release.build_id != binding.build_id
+                        or release.descriptor["manifest_hash"] != binding.manifest_hash
+                        or release.descriptor["artifact_digest"] != binding.artifact_digest
+                    ):
+                        raise ApiError(
+                            409,
+                            "package_release_unavailable",
+                            "An approved immutable release is required for reservation",
+                        )
                 session.add(row)
                 session.flush()
                 self._execution_event(

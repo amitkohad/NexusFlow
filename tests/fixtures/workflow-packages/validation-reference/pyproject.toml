@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nexusflow-validation-reference-package"
+version = "0.1.0"
+description = "Complete validation-reference workflow package"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "nexusflow-contracts==0.1.0",
+    "nexusflow-common==0.1.0",
+    "nexusflow-workflow-sdk==0.1.0",
+    "nexusflow-workflows==0.1.0",
+    "nexusflow-activities==0.1.0",
+    "nexusflow-workflow-executor==0.1.0",
+]
+
+[project.entry-points."nexusflow.workflow_packages"]
+validation-reference = "validation_reference_package:registration"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/validation_reference_package"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "pyproject.toml", "pools"]

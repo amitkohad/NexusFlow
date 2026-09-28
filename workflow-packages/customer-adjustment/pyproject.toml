@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nexusflow-customer-adjustment-package"
+version = "0.1.0"
+description = "Complete customer-adjustment workflow package"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "nexusflow-contracts==0.1.0",
+    "nexusflow-common==0.1.0",
+    "nexusflow-workflow-sdk==0.1.0",
+    "nexusflow-workflows==0.1.0",
+    "nexusflow-activities==0.1.0",
+    "nexusflow-workflow-executor==0.1.0",
+]
+
+[project.entry-points."nexusflow.workflow_packages"]
+customer-adjustment = "customer_adjustment_package:registration"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/customer_adjustment_package"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "pyproject.toml", "pools"]

@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "process_id": null,
+  "workflow_name": "validation-reference",
+  "request": {},
+  "variables": {},
+  "start_at": "validate",
+  "steps": {
+    "validate": {
+      "type": "activity",
+      "capability": "validate_request",
+      "input": {},
+      "timeout_seconds": 30,
+      "retry": {
+        "maximum_attempts": 3,
+        "initial_interval_seconds": 1,
+        "maximum_interval_seconds": 10,
+        "backoff_coefficient": 2,
+        "non_retryable_error_types": [
+          "ValidationError",
+          "BusinessError",
+          "AuthorizationError"
+        ]
+      },
+      "compensation": null,
+      "task_queue": "activities",
+      "contract_version": "1.0",
+      "next": "done"
+    },
+    "done": {
+      "type": "end",
+      "outcome": "COMPLETED"
+    }
+  }
+}

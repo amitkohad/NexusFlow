@@ -22,6 +22,7 @@ def main() -> int:
             "format",
             "build",
             "build-services",
+            "build-packages",
             "docker-build",
         ),
     )
@@ -34,12 +35,14 @@ def main() -> int:
         "dev": [[python, "-m", "app.worker"]],
         "runtime": [[python, "-m", "workflow_runtime"]],
         "build-services": [[python, "scripts/build_services.py", "--verify"]],
+        "build-packages": [[python, "scripts/build_workflow_packages.py", "--verify"]],
         "test": [[python, "-m", "pytest", *extra]],
         "lint": [
             [python, "-m", "ruff", "check", "."],
             [python, "-m", "ruff", "format", "--check", "."],
             [python, "-m", "mypy"],
             [python, "scripts/generate_definition_schema.py", "--check"],
+            [python, "scripts/generate_package_schema.py", "--check"],
         ],
         "format": [[python, "-m", "ruff", "format", "."]],
         "build": [[python, "-m", "build", "--no-isolation"]],
