@@ -54,6 +54,84 @@ For the reproducible development environment and baseline checks, use
 The pip instructions below install the generated runtime-only requirements;
 development tools and tests are installed through uv.
 
+## Create a workflow package and run its worker
+
+The current release path uses a **workflow package** rather than a new Python
+worker for each process. Use
+[`workflow-packages/customer-adjustment`](workflow-packages/customer-adjustment/README.md)
+as the working example. Its definition, manifest, package metadata, Activity
+code, and executor pool are separate pieces:
+
+1. **Write the definition.** Copy
+   [`definition-v1.json`](workflow-packages/customer-adjustment/src/customer_adjustment_package/definition-v1.json)
+   into your package and give it a unique `workflow_name`. Set `start_at` and
+   connect the named `steps` with `next` or decision/approval branches. An
+   Activity step names a `capability`, uses the logical `task_queue` from the
+   manifest (the example uses `activities`), and declares `contract_version`,
+   timeout, and retry settings. `decision`, `approval`, and `end` steps need no
+   Activity handler. Validate the document with
+   `uv run --locked python -m workflow_sdk.definitions <path-to-definition.json>`.
+2. **Implement each Activity.** Add a typed handler like
+   [`validate_request`](libs/activities/src/nexusflow_activities/validation.py)
+   using `@activity.defn(name="<capability>.pkg.v1")`. Accept a
+   `PackageActivityRequest`, validate its envelope, and return an
+   `ActivityResponse` with the same capability and contract version. Export the
+   handler from its package and include that distribution in the workflow
+   package's exact dependencies. Approval steps also require the
+   `create_approval_task.pkg.v1` registration and the shared human-task service.
+3. **Register the package.** In
+   [`manifest.json`](workflow-packages/customer-adjustment/src/customer_adjustment_package/manifest.json),
+   list the exact definition and its content hash under `definitions`, the
+   runtime Workflow under `workflow_registrations`, every handler under
+   `activity_registrations`, and the logical queues. The installed package
+   exposes this manifest through the `nexusflow.workflow_packages` entry point
+   in its `pyproject.toml`. Keep the manifest, definition, dependency lock, and
+   package version consistent; a code or definition change needs a new release
+   version and Build ID. The existing build script has an explicit `PACKAGES`
+   map, so add a new package there before building it.
+4. **Build and verify.** From the repository root, run:
+
+   ```powershell
+   uv sync --locked
+   uv run --locked python scripts/build_workflow_packages.py --verify
+   ```
+
+   This creates a platform-specific wheelhouse ZIP and a separate
+   `.release.json` descriptor in `dist/workflow-packages`. Verification installs
+   each listed package in isolation and exercises it against local Temporal.
+5. **Configure and start the worker.** Start `temporal server start-dev` and,
+   for approval flows, the [human-task service](apps/human-task-service/README.md).
+   Install the verified wheelhouse into a virtual environment, then copy
+   [`pools/mixed.json`](workflow-packages/customer-adjustment/pools/mixed.json)
+   to an operator-owned `operator-pool.json`. Set its package/release IDs, stable
+   queue bindings, Temporal namespace, deployment name, Build ID, role, and
+   capacity for the release. For the included package on Windows PowerShell:
+
+   ```powershell
+   uv venv .package-env
+   uv pip install --python .package-env/Scripts/python.exe --no-index --find-links release/wheelhouse nexusflow-customer-adjustment-package==0.2.0
+   $env:NEXUSFLOW_HUMAN_TASK_SERVICE_URL = "http://127.0.0.1:8085"
+   $env:NEXUSFLOW_HUMAN_TASK_SERVICE_TOKEN = "<tasks:create service credential>"
+   .package-env/Scripts/python.exe -m workflow_executor --package customer-adjustment --pool operator-pool.json
+   ```
+
+   Here `release/` is the directory where you expanded the verified ZIP. Use
+   `.package-env/bin/python` on macOS/Linux. One command starts one replica;
+   choose a different `NEXUSFLOW_PROBE_PORT` for another replica on the same
+   host. Workflow-only and Activity-only pool examples are beside `mixed.json`.
+6. **Admit and start it through the API.** Set
+   `NEXUSFLOW_RUNTIME_PROFILE=package`, migrate the API database, register and
+   approve/promote the definition, then register the package and publish/approve
+   its release. Configure the executor pool, start its processes, promote the
+   release after Temporal sees pollers, and call
+   `POST /api/v1/workflows/{workflow_type}/start`. Follow the exact endpoint
+   sequence in [package setup](docs/development/workflow-packages.md).
+
+Package Activity workers poll package-owned queues. The older independent
+capability workers are still documented in the
+[runtime and workers walkthrough](docs/development/runtime-workers.md) for
+existing governed-profile workflows.
+
 ### macOS/Linux
 
 ```bash
