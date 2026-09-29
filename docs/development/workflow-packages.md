@@ -4,6 +4,9 @@ Phase 4A adds complete local deployment artifacts. A business package owns its
 exact definitions, explicit Workflow and Activity registrations, runtime, and
 locked dependencies. The reusable executor starts one replica of that installed
 package. Shared Temporal, API, registry and database services remain separate.
+Phase 5 Customer Adjustment 0.2.0 includes a durable task-creation Activity;
+the [human-task service](../../apps/human-task-service/README.md) remains a
+separate shared service and owns its task database/outbox.
 
 ## Build and install
 
@@ -31,7 +34,7 @@ wheelhouse:
 
 ```text
 uv venv .package-env
-uv pip install --python .package-env/Scripts/python.exe --no-index --find-links release/wheelhouse nexusflow-customer-adjustment-package==0.1.0
+uv pip install --python .package-env/Scripts/python.exe --no-index --find-links release/wheelhouse nexusflow-customer-adjustment-package==0.2.0
 ```
 
 On Unix use `.package-env/bin/python`. Before polling, the loader checks trusted
@@ -49,12 +52,12 @@ following complete local example as `operator-pool.json` beside `.package-env`:
 {
   "pool_id": "customer-adjustment-mixed",
   "package_id": "customer-adjustment",
-  "package_release_id": "customer-adjustment-0.1.0",
+  "package_release_id": "customer-adjustment-0.2.0",
   "environment": "local",
   "temporal_namespace": "default",
   "role": "mixed",
   "worker_deployment_name": "nexusflow-customer-adjustment",
-  "build_id": "customer-adjustment-0.1.0",
+  "build_id": "customer-adjustment-0.2.0",
   "queue_bindings": {
     "workflow": "customer-adjustment-tq",
     "activities": "customer-adjustment-tq"
@@ -70,8 +73,10 @@ following complete local example as `operator-pool.json` beside `.package-env`:
 }
 ```
 
-Start Temporal locally, then run the installed package using its environment's
-Python and the operator pool document:
+Start Temporal and the shared human-task service locally. Set
+`NEXUSFLOW_HUMAN_TASK_SERVICE_URL` and its service-only
+`NEXUSFLOW_HUMAN_TASK_SERVICE_TOKEN` in the executor environment, then run the
+installed package using its Python and the operator pool document:
 
 ```text
 .package-env/Scripts/python.exe -m workflow_executor --package customer-adjustment --pool operator-pool.json
@@ -108,7 +113,8 @@ Installed release verification always uses the complete locked artifact.
 
 Use API profile `NEXUSFLOW_RUNTIME_PROFILE=package` for new package starts. The
 existing default `governed` profile remains available for the original runtime.
-Apply Alembic migration `0003` before starting the updated API.
+Apply Alembic migrations through `0004` before starting the updated API and
+human-task service.
 
 Operator endpoints require `packages:read`, `packages:write`, `packages:approve`
 or `packages:deploy` as appropriate, with the authenticated business scope.
@@ -170,4 +176,5 @@ Retirement requires Temporal drainage plus no routed, pending or nonterminal
 execution needing that build. Metadata retirement never terminates worker processes.
 
 See [migration mapping](../operations/package-migration.md) and
-[verification](phase-4a-verification.md).
+[Phase 4A verification](phase-4a-verification.md) for the original 0.1.0 package
+and [Phase 5 verification](phase-5-verification.md) for durable task decisions.

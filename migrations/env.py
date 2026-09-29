@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 from alembic import context
+from human_task_service.models import TaskBase
 from sqlalchemy import create_engine, pool
 from workflow_api.models import Base
 
@@ -14,7 +15,7 @@ database_url = (
 )
 if not database_url:
     raise RuntimeError("A migration database URL is required")
-target_metadata = Base.metadata
+target_metadata = [Base.metadata, TaskBase.metadata]
 
 
 def run_migrations_offline() -> None:

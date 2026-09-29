@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "package_id": "validation-reference",
-  "package_version": "0.1.0",
-  "build_id": "validation-reference-0.1.0",
+  "package_version": "0.2.0",
+  "build_id": "validation-reference-0.2.0",
   "worker_deployment_name": "nexusflow-validation-reference",
   "definitions": [
     {
@@ -87,7 +87,7 @@
     },
     {
       "name": "nexusflow-activities",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "nexusflow-common",
@@ -142,6 +142,6 @@
       "version": "0.4.4"
     }
   ],
-  "dependency_lock_hash": "e2879e81bab2c6a50e5fe1adb951d307df5bc6a7b27de6be47f19cd47fc13af2",
+  "dependency_lock_hash": "02debb34fd124386bb055a4fd119a997e4768c21ac7b093c17750b6485168a14",
   "secret_references": []
 }

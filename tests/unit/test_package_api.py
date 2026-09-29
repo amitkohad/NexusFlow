@@ -313,6 +313,36 @@ def test_public_start_pins_private_release_and_hides_placement(
     assert package_harness.backend.package_starts[0][1].context.actor == "package-operator"
 
 
+def test_durable_package_approval_cannot_bypass_human_task_api(
+    package_harness: PackageHarness,
+) -> None:
+    manifest = PackageManifest.model_validate(
+        {**make_manifest(approval=True).model_dump(mode="json"), "durable_human_tasks": True}
+    )
+    publish_fixture(package_harness, manifest)
+    govern_definition(package_harness, manifest)
+    assert configure_pool(package_harness, manifest).status_code == 200
+    assert promote(package_harness, manifest).status_code == 200
+    started = package_harness.client.post(
+        "/api/v1/workflows/validation_reference/start",
+        json=start_request("durable-approval"),
+        headers=AUTH,
+    )
+    assert started.status_code == 202, started.text
+    workflow_id = started.json()["workflow_id"]
+    package_harness.backend.statuses[workflow_id] = BusinessSnapshot(
+        ExecutionState.WAITING_FOR_APPROVAL, current_step="approval"
+    )
+    response = package_harness.client.post(
+        f"/api/v1/workflows/{workflow_id}/signal",
+        json={"approved": True},
+        headers=AUTH,
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "task_api_required"
+    assert not package_harness.backend.signals
+
+
 def test_unavailable_compatible_release_does_not_reserve_a_start(
     package_harness: PackageHarness,
 ) -> None:

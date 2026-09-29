@@ -96,6 +96,18 @@ def test_canonical_hashes_reject_dependency_tampering_and_are_order_stable() -> 
     ) == manifest_hash(manifest)
 
 
+def test_additive_task_mode_preserves_existing_manifest_digest() -> None:
+    original = make_manifest()
+    assert (
+        manifest_hash(original)
+        == "a77ed0a3946dfd5f4d75dc3f793c57e3dcc074b87d060d5283caed3f8ab76c4a"
+    )
+    managed = PackageManifest.model_validate(
+        {**original.model_dump(mode="json"), "durable_human_tasks": True}
+    )
+    assert manifest_hash(managed) != manifest_hash(original)
+
+
 @pytest.mark.parametrize(
     "raw", ['{"package_id":"x","package_id":"y"}', '{"number":NaN}', '{"number":Infinity}']
 )

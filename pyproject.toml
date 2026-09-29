@@ -40,6 +40,7 @@ packages = [
     "libs/common/src/nexusflow_common",
     "libs/workflow-sdk/src/workflow_sdk",
     "apps/workflow-api/src/workflow_api",
+    "apps/human-task-service/src/human_task_service",
     "apps/workflow-runtime/src/workflow_runtime",
     "workers/validation-worker/src/validation_worker",
     "workers/notification-worker/src/notification_worker",

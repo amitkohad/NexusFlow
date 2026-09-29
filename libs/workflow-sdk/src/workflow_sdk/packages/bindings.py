@@ -99,4 +99,6 @@ def resolve_binding(
         eligible_build_ids=eligible_build_ids or (manifest.build_id,),
         versioning_behavior=workflow.versioning_behavior,
         continue_as_new_policy=workflow.continue_as_new_policy,
+        task_api_required=manifest.durable_human_tasks
+        and "create_approval_task" in required_capabilities,
     )

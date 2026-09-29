@@ -1,4 +1,4 @@
-"""Build independently deployable runtime/worker wheels and their shared libraries.
+"""Build independently deployable runtime, worker and task-service wheels.
 
 Use --verify to install each service alone, using the locked runtime constraints,
 and confirm that no API or other worker is needed in its environment.
@@ -15,7 +15,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LIBRARIES = ("libs/contracts", "workflows", "libs/common", "libs/workflow-sdk")
+LOCAL_LIBRARY_WHEELS = (
+    "nexusflow_contracts-0.1.0-py3-none-any.whl",
+    "nexusflow_workflows-0.1.0-py3-none-any.whl",
+    "nexusflow_common-0.1.0-py3-none-any.whl",
+    "nexusflow_workflow_sdk-0.1.0-py3-none-any.whl",
+)
 SERVICES = {
+    "apps/human-task-service": ("nexusflow_human_task_service", "human_task_service"),
     "apps/workflow-runtime": ("nexusflow_workflow_runtime", "workflow_runtime"),
     "workers/validation-worker": ("nexusflow_validation_worker", "validation_worker"),
     "workers/notification-worker": ("nexusflow_notification_worker", "notification_worker"),
@@ -78,6 +85,7 @@ def main() -> None:
                     "--constraint",
                     str(ROOT / "requirements.txt"),
                     str(wheel),
+                    *(str(output / library_wheel) for library_wheel in LOCAL_LIBRARY_WHEELS),
                 ],
                 check=True,
             )

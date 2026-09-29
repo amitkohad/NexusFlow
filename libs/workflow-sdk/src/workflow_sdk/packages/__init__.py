@@ -10,6 +10,7 @@ from .loader import (
 from .validation import (
     PackageValidationError,
     canonical_bytes,
+    canonical_manifest_document,
     definition_hash,
     dependency_lock_hash,
     manifest_hash,
@@ -20,6 +21,7 @@ __all__ = [
     "LoadedPackage",
     "PackageValidationError",
     "canonical_bytes",
+    "canonical_manifest_document",
     "definition_hash",
     "dependency_lock_hash",
     "load_installed_package",

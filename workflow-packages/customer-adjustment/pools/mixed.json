@@ -1,12 +1,12 @@
 {
   "pool_id": "customer-adjustment-mixed",
   "package_id": "customer-adjustment",
-  "package_release_id": "customer-adjustment-0.1.0",
+  "package_release_id": "customer-adjustment-0.2.0",
   "environment": "local",
   "temporal_namespace": "default",
   "role": "mixed",
   "worker_deployment_name": "nexusflow-customer-adjustment",
-  "build_id": "customer-adjustment-0.1.0",
+  "build_id": "customer-adjustment-0.2.0",
   "queue_bindings": {
     "workflow": "customer-adjustment-tq",
     "activities": "customer-adjustment-tq"
