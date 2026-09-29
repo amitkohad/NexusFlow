@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nexusflow-activities"
-version = "0.1.0"
+version = "0.2.0"
 description = "Named reference Activities embedded in NexusFlow workflow packages"
 readme = "README.md"
 requires-python = ">=3.11"

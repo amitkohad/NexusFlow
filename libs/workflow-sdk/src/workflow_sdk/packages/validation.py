@@ -57,8 +57,17 @@ def definition_hash(document: DefinitionDocument) -> str:
     return hashlib.sha256(canonical_bytes(document.model_dump(mode="json"))).hexdigest()
 
 
+def canonical_manifest_document(manifest: PackageManifest) -> dict[str, Any]:
+    """Keep the original v1 digest when the new task mode is absent/disabled."""
+
+    document = manifest.model_dump(mode="json")
+    if not manifest.durable_human_tasks:
+        document.pop("durable_human_tasks")
+    return document
+
+
 def manifest_hash(manifest: PackageManifest) -> str:
-    return hashlib.sha256(canonical_bytes(manifest.model_dump(mode="json"))).hexdigest()
+    return hashlib.sha256(canonical_bytes(canonical_manifest_document(manifest))).hexdigest()
 
 
 def dependency_lock_hash(manifest: PackageManifest) -> str:

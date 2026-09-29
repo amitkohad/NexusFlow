@@ -23,7 +23,7 @@ inside the release artifact:
 
 ```text
 uv venv .package-env
-uv pip install --python .package-env/Scripts/python.exe --no-index --find-links release/wheelhouse nexusflow-validation-reference-package==0.1.0
+uv pip install --python .package-env/Scripts/python.exe --no-index --find-links release/wheelhouse nexusflow-validation-reference-package==0.2.0
 Copy-Item tests/fixtures/workflow-packages/validation-reference/pools/mixed.json operator-pool.json
 .package-env/Scripts/python.exe -m workflow_executor --package validation-reference --pool operator-pool.json
 ```

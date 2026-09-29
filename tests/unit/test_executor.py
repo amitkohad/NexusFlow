@@ -18,12 +18,13 @@ from tests.package_fixtures import source_package, start_request, synthetic_rele
 
 
 def pool(role: str = "mixed", **changes: Any) -> ExecutorPool:
+    manifest = source_package().manifest
     values = {
         "pool_id": "customer-adjustment-" + role,
-        "package_id": "customer-adjustment",
-        "package_release_id": "customer-adjustment-0.1.0",
-        "worker_deployment_name": "nexusflow-customer-adjustment",
-        "build_id": "customer-adjustment-0.1.0",
+        "package_id": manifest.package_id,
+        "package_release_id": f"{manifest.package_id}-{manifest.package_version}",
+        "worker_deployment_name": manifest.worker_deployment_name,
+        "build_id": manifest.build_id,
         "role": role,
         "queue_bindings": {
             "workflow": "customer-adjustment-tq",
@@ -95,7 +96,7 @@ def test_capacity_maps_to_modern_sdk_separate_slots_pollers_and_rates() -> None:
     deployment = options["deployment_config"]
     assert deployment.use_worker_versioning is True
     assert deployment.version.deployment_name == "nexusflow-customer-adjustment"
-    assert deployment.version.build_id == "customer-adjustment-0.1.0"
+    assert deployment.version.build_id == source_package().manifest.build_id
     assert "build_id" not in options and "use_worker_versioning" not in options
 
 
@@ -180,7 +181,7 @@ def test_auto_upgrade_boundary_accepts_later_build_with_retained_exact_closure()
         }
     )
     binding = resolve_binding(original, synthetic_release(original), original.definitions[0])
-    upgraded = original.model_copy(update={"build_id": "new-build", "package_version": "0.2.0"})
+    upgraded = original.model_copy(update={"build_id": "new-build", "package_version": "0.3.0"})
     assert "new-build" not in binding.eligible_build_ids
     validate_execution_content(
         upgraded, pool(build_id="new-build"), binding, "PackageAutoUpgradeWorkflowV1"
@@ -212,7 +213,7 @@ def test_upgrade_boundary_rejects_changed_stable_activity_queues() -> None:
         )
 
 
-@pytest.mark.parametrize("changes", [{"manifest_hash": "a" * 64}, {"package_version": "0.2.0"}])
+@pytest.mark.parametrize("changes", [{"manifest_hash": "a" * 64}, {"package_version": "9.9.9"}])
 def test_same_build_requires_exact_manifest_and_package_version(changes: dict[str, Any]) -> None:
     package = source_package()
     request = start_request(package)

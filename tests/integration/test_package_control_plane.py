@@ -38,7 +38,7 @@ async def test_package_http_admission_observes_two_generic_replicas_and_complete
     package = load_executor_package("customer-adjustment", development_source=True)
     manifest = package.manifest
     release = WorkflowRelease(
-        package_release_id="customer-adjustment-0.1.0",
+        package_release_id=f"{manifest.package_id}-{manifest.package_version}",
         package_id=manifest.package_id,
         package_version=manifest.package_version,
         build_id=manifest.build_id,
@@ -222,7 +222,7 @@ async def test_modern_backend_promotes_ramps_and_clears_previous_ramp() -> None:
     queue = deployment + "-tq"
     first_manifest = original.manifest.model_copy(update={"worker_deployment_name": deployment})
     second_manifest = first_manifest.model_copy(
-        update={"build_id": "validation-reference-0.2.0", "package_version": "0.2.0"}
+        update={"build_id": "validation-reference-0.3.0", "package_version": "0.3.0"}
     )
     async with await WorkflowEnvironment.start_local(
         dev_server_existing_path=cli,

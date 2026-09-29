@@ -16,7 +16,8 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from contracts import DefinitionDocument, DefinitionStatus, EndStep, ExecutionState
 from contracts.api import RegisterDefinitionRequest
-from sqlalchemy import create_engine, inspect
+from human_task_service.models import TaskBase
+from sqlalchemy import MetaData, create_engine, inspect
 from workflow_api.errors import ApiError
 from workflow_api.models import Base
 from workflow_api.repository import ExecutionRecord, Scope, WorkflowRepository
@@ -24,6 +25,10 @@ from workflow_api.repository import ExecutionRecord, Scope, WorkflowRepository
 NOW = datetime(2026, 9, 27, tzinfo=timezone.utc)
 SCOPE = Scope("acme", "finance", "adjustments")
 ROOT = Path(__file__).resolve().parents[2]
+METADATA = MetaData()
+for source in (Base.metadata, TaskBase.metadata):
+    for table in source.tables.values():
+        table.to_metadata(METADATA)
 
 
 def definition_request(version: str = "1") -> RegisterDefinitionRequest:
@@ -448,7 +453,7 @@ def test_initial_migration_matches_models_and_roundtrips(tmp_path: Path) -> None
     with engine.begin() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, "head")
-        assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []
+        assert compare_metadata(MigrationContext.configure(connection), METADATA) == []
         command.downgrade(config, "base")
         assert inspect(connection).get_table_names() == ["alembic_version"]
         command.upgrade(config, "head")

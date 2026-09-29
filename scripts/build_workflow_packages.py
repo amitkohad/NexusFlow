@@ -16,7 +16,12 @@ import zipfile
 from pathlib import Path
 
 from contracts import WorkflowRelease
-from workflow_sdk.packages import canonical_bytes, manifest_hash, validate_manifest
+from workflow_sdk.packages import (
+    canonical_bytes,
+    canonical_manifest_document,
+    manifest_hash,
+    validate_manifest,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 LIBRARIES = (
@@ -183,7 +188,7 @@ def main() -> None:
             checksums = {item.name: sha256(item) for item in sorted(wheelhouse.glob("*.whl"))}
             (staging / "checksums.json").write_bytes(canonical_bytes(checksums))
             (staging / "manifest.json").write_bytes(
-                canonical_bytes(manifest.model_dump(mode="json"))
+                canonical_bytes(canonical_manifest_document(manifest))
             )
             (staging / "dependency-lock.json").write_bytes(
                 canonical_bytes([item.model_dump(mode="json") for item in manifest.dependencies])

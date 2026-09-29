@@ -1,12 +1,21 @@
 # Implementation Plan: Enterprise Workflow Platform
 
-**Working Branch**: `codex/phase-4a-workflow-packages-generic-executors` (from `feature/develop`) | **Revised**: 2026-09-27 | **Spec**: [spec.md](spec.md)
+**Working Branch**: `codex/phase-5-human-task-management` (from `feature/develop`) | **Revised**: 2026-09-28 | **Spec**: [spec.md](spec.md)
 
 ## Status and scope
 
 Phases 1–4 (T001–T031) are implemented under the original capability-service architecture. Phase 4 runs shared `GovernedWorkflowV1` orchestration and five separately packaged capability workers. Its 601-test verification remains evidence for that implementation, not for the revised topology.
 
 The accepted target makes each business workflow package the unit of build, release, deployment, and capacity ownership. **Phase 4A, T078–T090, is implemented**: complete local artifacts, manifest validation, a generic executor, release-aware runtime/API routing, capacity configuration and migration/replay checks. Its full suite passed 802 tests; both packages passed isolated installation and real Temporal execution. See [verification evidence](../../docs/development/phase-4a-verification.md). Containers, controllers and cloud autoscaling remain later phases. [ADR 0006](../../docs/adr/0006-workflow-packages-and-executor-pools.md) supersedes ADR 0005's target ownership while preserving original code and histories. Existing task IDs and historical completion evidence remain unchanged.
+
+**Phase 5, T032–T038, adds durable human tasks** to the package execution path.
+The customer package carries a task-creation Activity, while the shared task
+service owns assignment, actor decisions, audit, SLA sweeps and a transactional
+signal outbox. The service checks the original Temporal execution chain before
+signaling a specific run. Package 0.1.0 histories retain their original approval
+signal behavior; the 0.2.0 manifest opts into task-API-only decisions. The
+standalone local service and real Temporal/PostgreSQL checks are documented in
+[Phase 5 verification](../../docs/development/phase-5-verification.md).
 
 ## Summary
 
@@ -114,7 +123,7 @@ and deployment artifacts that remain planning paths:
 apps/
   workflow-api/                 # governed API and package release/pool control plane
   workflow-executor/            # generic installed-package process host
-  human-task-service/           # planned shared durable task service
+  human-task-service/           # shared durable task API and signal outbox
   workflow-admin/               # planned
 workflow-packages/
   customer-adjustment/          # manifest, definition/code, locked dependencies
@@ -147,7 +156,7 @@ Preserve `app/`, `apps/workflow-runtime/`, `workers/*-worker/`, and version 1 ca
 | 3: Governed Workflow API | T015–T021 | Complete; API/registry/persistence |
 | 4: Original Runtime and Independent Workers | T022–T031 | Complete under superseded capability deployment model |
 | 4A: Workflow Packages and Generic Executors | T078–T090 | Complete locally; closure, host, bindings, capacity, version routing and migration; 802 tests |
-| 5: Human Task Management | T032–T038 | Package handlers calling shared durable task service |
+| 5: Human Task Management | T032–T038 | Local durable task API, package adapter, audit/SLA/outbox and Temporal checks |
 | 6: Failure Handling and Operations | T039–T044 | Side-effect safety, remediation, long-running/history policy |
 | 7: Definition and Release Governance | T045–T048 | Definition/release compatibility, approval and promotion |
 | 8: Security, Audit, Observability | T049–T055 | Scoped operations and release/pool telemetry |

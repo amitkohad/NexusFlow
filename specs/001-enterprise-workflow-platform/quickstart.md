@@ -1,12 +1,14 @@
 # Local Development Quickstart
 
 The current executable baseline includes Phase 4A workflow packages and generic
-executors, following
+executors plus Phase 5 durable human tasks, following
 [ADR 0006](../../docs/adr/0006-workflow-packages-and-executor-pools.md).
 The original Phase 4 services remain available for existing histories; container
 and cloud deployment are later phases. See
 [Phase 4A verification](../../docs/development/phase-4a-verification.md) for the
-802-test result and installed-artifact checks.
+historical 802-test result and installed-artifact checks, and
+[Phase 5 verification](../../docs/development/phase-5-verification.md) for
+durable task checks.
 
 ## Original Phase 4 validation
 
@@ -14,11 +16,12 @@ Follow the verified [runtime and worker walkthrough](../../docs/development/runt
 and [API walkthrough](../../docs/development/workflow-api.md) for exact launch commands.
 They start a local Temporal server, the orchestration runtime, five capability
 workers, and the governed API after applying business metadata migrations.
-The Customer Adjustment low-value path completes through the API. The high-value
-path waits for approval after creating a reference task and can be resumed with
-the supported approval signal path. Persistent task API, claims, delegation,
-business audit export, real enterprise side effects and production deployment
-are later increments, not capabilities supplied by this quickstart.
+The original Phase 4 Customer Adjustment low-value path completes through the
+API. Its high-value path creates a reference task and accepts the historical
+approval signal path. New package 0.2.0 approvals use the Phase 5 task API below;
+the original runtime and histories remain on their existing behavior. Business
+audit export, real enterprise side effects and production deployment are later
+increments.
 
 Current development checks:
 
@@ -75,8 +78,29 @@ and rollback. OCI images/controllers remain Phase 9. The acceptance sequence is:
 10. Run legacy and Phase 4 executions alongside package runs without rewriting
     existing histories, registrations or queue bindings.
 
-Persistent human-task lifecycle, real adapters, compensation and complete
-observability are validated when their assigned later phases are implemented.
+The customer package 0.2.0 includes the durable human-task adapter described
+below. Compensation and complete observability remain later phases.
+
+## Phase 5 durable task acceptance
+
+Apply Alembic migration `0004` to an isolated business database, then configure
+the standalone [human-task service](../../apps/human-task-service/README.md)
+with the variables in its `.env.example`. Local/test mode requires two distinct
+32-character-or-longer bearer credentials: `NEXUSFLOW_HUMAN_TASK_SERVICE_TOKEN`
+for package task creation and `NEXUSFLOW_HUMAN_TASK_ACTOR_TOKEN` for the human
+actor. Start Temporal, the task service (`uv run --locked python -m
+human_task_service`), the workflow API and the Customer Adjustment 0.2.0 generic
+executor. Set `NEXUSFLOW_HUMAN_TASK_SERVICE_URL` on the executor to the task
+service's base URL (default `http://127.0.0.1:8085`).
+
+Start the high-value sample through the package API. The task can be listed,
+claimed and approved or rejected through `/api/v1/tasks`; use the actor token
+for those operations. The API stores the outcome and outbox event atomically;
+the background dispatcher resumes the exact Temporal execution chain. An
+overdue task escalates or expires according to policy. The package API rejects
+direct approval signals for this release, so decisions cannot bypass the task
+record. The Phase 5 real Temporal tests also exercise executor restart, early
+signals, release-compatible waits and reused Workflow IDs.
 
 ## Planned container and cloud validation
 

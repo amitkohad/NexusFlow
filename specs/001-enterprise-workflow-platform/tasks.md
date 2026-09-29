@@ -165,13 +165,22 @@ lifecycle, cloud autoscaling and advanced upgrade/remediation remain later phase
 
 **Independent Test**: Create a task from the sample workflow, claim/approve or reject it, and verify exactly-once workflow resumption.
 
-- [ ] T032 [P] [US3] Define HumanTask state transitions and persistence schema in `apps/human-task-service/`.
-- [ ] T033 [US3] Implement task list/get/create/claim/complete/approve/reject endpoints.
-- [ ] T034 [US3] Implement reassign/delegate/escalate/expire policy operations.
-- [ ] T035 [US3] Implement durable task-service adapter Activities under `libs/activities/` and include them in dependent workflow packages; use each package's approved queue/version binding rather than a mandatory global `human-task-tq` worker.
-- [ ] T036 [US3] Add authenticated actor, authorization, duplicate completion, evidence, SLA, and escalation handling.
-- [ ] T037 [P] [US3] Add task contract tests in `tests/contract/test_human_tasks.py`.
-- [ ] T038 [US3] Add package-executor Temporal tests for long waits, approval, rejection, timeout, escalation, duplicate signals and task correlation across compatible release changes.
+- [x] T032 [P] [US3] Define HumanTask state transitions and persistence schema in `apps/human-task-service/`.
+- [x] T033 [US3] Implement task list/get/create/claim/complete/approve/reject endpoints.
+- [x] T034 [US3] Implement reassign/delegate/escalate/expire policy operations.
+- [x] T035 [US3] Implement durable task-service adapter Activities under `libs/activities/` and include them in dependent workflow packages; use each package's approved queue/version binding rather than a mandatory global `human-task-tq` worker.
+- [x] T036 [US3] Add authenticated actor, authorization, duplicate completion, evidence, SLA, and escalation handling.
+- [x] T037 [P] [US3] Add task contract tests in `tests/contract/test_human_tasks.py`.
+- [x] T038 [US3] Add package-executor Temporal tests for long waits, approval, rejection, timeout, escalation, duplicate signals and task correlation across compatible release changes.
+
+**Phase 5 verification (2026-09-28)**: Implemented on
+`codex/phase-5-human-task-management`, created from `feature/develop` at
+`951fcfdd292086870be4ca17d43012e552ad5662`. All 869 tests passed,
+including real Temporal package executors and PostgreSQL migration/concurrency
+checks. Ruff, mypy, schema drift, lock checks, standalone service installation,
+both isolated 0.2.0 package builds, and aggregate distribution checks passed.
+See [verification evidence](../../docs/development/phase-5-verification.md)
+and [local setup](../../apps/human-task-service/README.md).
 
 **Checkpoint**: Human approval can remain open for days and resume the workflow safely.
 

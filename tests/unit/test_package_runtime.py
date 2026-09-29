@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from contracts import (
     ActivityResponse,
+    ApprovalStep,
     DefinitionDocument,
     PackageActivityRequest,
     PackageRuntimeStartRequest,
@@ -20,6 +21,8 @@ from temporalio.exceptions import ApplicationError
 from workflow_sdk.packages.validation import definition_hash
 from workflow_sdk.runtime import PackageAutoUpgradeWorkflowV1, PackageWorkflowV1
 from workflow_sdk.runtime.interpreter import _prepare_start
+
+from tests.package_fixtures import source_package, start_request
 
 
 def package_start(
@@ -85,6 +88,37 @@ def package_start(
     )
 
 
+def approval_start(*, task_api_required: bool) -> PackageRuntimeStartRequest:
+    raw = package_start(
+        {
+            "start_at": "approval",
+            "steps": {
+                "approval": {
+                    "type": "approval",
+                    "assignee_group": "managers",
+                    "timeout_seconds": 60,
+                    "on_approved": "done",
+                    "on_rejected": "rejected",
+                    "on_timeout": "timed_out",
+                },
+                "done": {"type": "end"},
+                "rejected": {"type": "end", "outcome": "REJECTED"},
+                "timed_out": {"type": "end", "outcome": "TIMED_OUT"},
+            },
+        }
+    ).model_dump(mode="json")
+    raw["release_binding"]["activity_bindings"] = [
+        {
+            "capability": "create_approval_task",
+            "activity_name": "create_approval_task.pkg.v1",
+            "logical_queue": "human_tasks",
+            "task_queue": "release-validation",
+        }
+    ]
+    raw["release_binding"]["task_api_required"] = task_api_required
+    return PackageRuntimeStartRequest.model_validate(raw)
+
+
 def mock_workflow_info(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -116,7 +150,7 @@ def test_workflow_modes_and_handlers_are_explicit() -> None:
     ):
         definition = workflow._Definition.must_from_class(runtime)
         assert definition.versioning_behavior == behavior
-        assert set(definition.signals) == {"approve", "continue_execution"}
+        assert set(definition.signals) == {"approve", "task_expired", "continue_execution"}
         assert set(definition.queries) == {"status"}
 
 
@@ -395,6 +429,152 @@ def test_only_first_strict_in_window_approval_is_accepted(approved: bool) -> Non
     instance.approve({"approved": approved, "approver": "first"})
     instance.approve({"approved": not approved, "approver": "later"})
     assert instance._approval == {"approved": approved, "approver": "first", "comment": ""}
+
+
+def test_durable_task_decision_buffers_early_event_and_requires_correlation() -> None:
+    instance = PackageWorkflowV1()
+    instance._active_task_key = "current-task-key"
+    for index in range(8):
+        instance.approve(
+            {
+                "task_id": f"old-task-{index}",
+                "event_id": f"old-event-{index}",
+                "idempotency_key": "previous-task-key",
+                "approved": False,
+                "approver": "old-actor",
+            }
+        )
+    assert instance._pending_task_events == {}
+    early = {
+        "task_id": "task-1",
+        "event_id": "event-1",
+        "idempotency_key": "current-task-key",
+        "approved": True,
+        "approver": "manager",
+        "evidence_reference": "evidence-1",
+    }
+    instance.approve(early)
+    assert instance._approval is None
+    assert instance._pending_task_events["task-1"]["event_id"] == "event-1"
+    instance.approve({**early, "event_id": "event-2", "approved": False})
+    assert instance._pending_task_events["task-1"]["event_id"] == "event-1"
+
+    instance._approval_waiting = True
+    instance._durable_task_id = "task-1"
+    instance.approve({"approved": False, "approver": "bypass"})
+    instance.approve({**early, "task_id": "other-task"})
+    instance.approve({**early, "idempotency_key": "previous-task-key"})
+    instance.approve({**early, "event_id": ""})
+    assert instance._approval is None
+    instance.approve(early)
+    instance.approve({**early, "event_id": "event-3", "approved": False})
+    assert instance._approval == {
+        "approved": True,
+        "approver": "manager",
+        "comment": "",
+        "task_id": "task-1",
+        "event_id": "event-1",
+        "idempotency_key": "current-task-key",
+        "evidence_reference": "evidence-1",
+    }
+
+
+def test_durable_task_expiration_is_correlated_and_first_terminal_event_wins() -> None:
+    instance = PackageWorkflowV1()
+    instance._approval_waiting = True
+    instance._durable_task_id = "task-1"
+    instance._active_task_key = "current-task-key"
+    event = {"task_id": "task-1", "idempotency_key": "current-task-key"}
+    instance.task_expired({**event, "task_id": "other-task", "event_id": "event-wrong"})
+    instance.task_expired({**event, "event_id": ""})
+    assert instance._approval is None
+    instance.task_expired({**event, "event_id": "event-expired"})
+    instance.approve(
+        {
+            **event,
+            "event_id": "event-approved",
+            "approved": True,
+            "approver": "late-approver",
+        }
+    )
+    assert instance._approval == {
+        "task_id": "task-1",
+        "event_id": "event-expired",
+        "idempotency_key": "current-task-key",
+        "expired": True,
+    }
+
+
+async def test_durable_binding_requires_durable_task_activity_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    start = start_request(source_package())
+    instance = PackageWorkflowV1()
+    instance._binding = start.release_binding
+    instance._routes = {
+        route.capability: route for route in start.release_binding.activity_bindings
+    }
+    monkeypatch.setattr(instance, "_invoke", AsyncMock(return_value={"task_id": "synthetic-task"}))
+    step = start.definition_document.steps["manager_approval"]
+    assert isinstance(step, ApprovalStep)
+    with pytest.raises(ApplicationError, match="durable human task") as failure:
+        await instance._wait_for_approval("manager_approval", step)
+    assert failure.value.type == "TaskContractError"
+    assert failure.value.non_retryable
+
+
+async def test_durable_response_remains_correlated_under_a_false_historical_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_workflow_info(monkeypatch)
+    instance = PackageWorkflowV1()
+
+    async def create_task(
+        _name: str, request: PackageActivityRequest, **_options: Any
+    ) -> ActivityResponse:
+        instance.approve(
+            {
+                "task_id": "task-1",
+                "event_id": "early-event",
+                "idempotency_key": request.idempotency_key,
+                "approved": True,
+                "approver": "manager",
+            }
+        )
+        return ActivityResponse(
+            capability="create_approval_task",
+            output={"task_id": "task-1", "durable": True},
+        )
+
+    async def wait_for_signal(predicate: Any, **_options: Any) -> None:
+        assert predicate()
+
+    monkeypatch.setattr(workflow, "execute_activity", create_task)
+    monkeypatch.setattr(workflow, "wait_condition", wait_for_signal)
+    result = await instance.run(approval_start(task_api_required=False).model_dump(mode="json"))
+    assert result["state"] == "COMPLETED"
+    assert result["results"]["approval"]["idempotency_key"] == "workflow-1:approval:1.0"
+
+
+async def test_durable_binding_reports_missing_durable_activity_output_from_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_workflow_info(monkeypatch)
+    monkeypatch.setattr(
+        workflow,
+        "execute_activity",
+        AsyncMock(
+            return_value=ActivityResponse(
+                capability="create_approval_task", output={"task_id": "synthetic-task"}
+            )
+        ),
+    )
+    with pytest.raises(ApplicationError, match="durable human task") as failure:
+        await PackageWorkflowV1().run(
+            approval_start(task_api_required=True).model_dump(mode="json")
+        )
+    assert failure.value.type == "TaskContractError"
+    assert failure.value.non_retryable
 
 
 async def test_invalid_transport_is_sanitized_and_non_retryable() -> None:

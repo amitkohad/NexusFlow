@@ -1,11 +1,11 @@
 # Data Model: Enterprise Workflow Platform
 
-This document describes the target model. Phase 1–4 implement definition and
-execution governance, including private `runtime_profile` and
-`runtime_task_queue` bindings. WorkflowPackage, WorkflowRelease, ExecutorPool,
-and package release bindings are Phase 4A additions and do not yet exist in the
-database or generated API schemas. Human-task lifecycle and complete audit
-capture remain later phases.
+This document describes the target model and current implementation. Phase 1–4
+implemented definition and execution governance, including private
+`runtime_profile` and `runtime_task_queue` bindings. Phase 4A added package,
+release, pool and execution bindings in the business database. Phase 5 adds
+human-task tables, scoped task contracts and a dedicated task API. Broader
+cross-service audit capture remains a later phase.
 
 ## WorkflowDefinition
 
@@ -69,17 +69,29 @@ excluded from public business execution responses.
 ## HumanTask
 
 - `task_id`
-- `workflow_id`, `run_id`, `step_id`
+- `workflow_id`, `run_id`, `first_execution_run_id`, `step_id`
 - `definition_version`
 - `tenant`, `business_domain`, `application`
+- `idempotency_key`, `request_fingerprint`, `version`
+- `package_id`, `package_release_id`, `build_id`
 - `assignee`, `assignee_group`
-- `status`
+- `delegated_by`, `status`, `escalation_level`
 - `form_schema_version`
 - `payload_reference`
 - `due_at`, `sla_deadline`
 - `escalation_policy`
-- `outcome`, `actor`, `evidence_reference`
-- `created_at`, `claimed_at`, `completed_at`, `expired_at`
+- `outcome`, `actor`, `evidence_reference`, `comment`
+- `created_at`, `updated_at`, `claimed_at`, `completed_at`, `expired_at`
+
+Phase 5 stores tasks in `human_tasks`, lifecycle events in
+`human_task_audit_events`, and one terminal signal per task in
+`human_task_outbox`. The outbox has lease/retry/delivered/blocked states.
+PostgreSQL row locks and unique keys arbitrate concurrent decisions. A reused
+Workflow ID starts a new task identity because the durable approval Activity
+uses Temporal's first execution run ID in its idempotency key. The outbox also
+retains that chain ID and sends only to a matching, exact run. The package
+release captured on first task creation remains its provenance through a
+compatible retry or Continue-As-New.
 
 ## AuditEvent
 

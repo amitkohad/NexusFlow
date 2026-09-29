@@ -1,12 +1,12 @@
 {
   "pool_id": "validation-reference-mixed",
   "package_id": "validation-reference",
-  "package_release_id": "validation-reference-0.1.0",
+  "package_release_id": "validation-reference-0.2.0",
   "environment": "local",
   "temporal_namespace": "default",
   "role": "mixed",
   "worker_deployment_name": "nexusflow-validation-reference",
-  "build_id": "validation-reference-0.1.0",
+  "build_id": "validation-reference-0.2.0",
   "queue_bindings": {
     "workflow": "validation-reference-tq",
     "activities": "validation-reference-tq"

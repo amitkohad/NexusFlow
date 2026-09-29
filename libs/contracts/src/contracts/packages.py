@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import Field, StrictInt, StrictStr, StringConstraints, model_validator
+from pydantic import Field, StrictBool, StrictInt, StrictStr, StringConstraints, model_validator
 
 from .base import (
     ContractModel,
@@ -100,6 +100,7 @@ class PackageManifest(ContractModel):
     dependencies: tuple[LockedDependency, ...] = Field(min_length=1, max_length=1000)
     dependency_lock_hash: SHA256Hash | None = None
     secret_references: tuple[PackageText, ...] = Field(default=(), max_length=100)
+    durable_human_tasks: StrictBool = False
 
 
 class WorkflowPackage(BusinessContext):
@@ -199,6 +200,7 @@ class PackageExecutionBinding(ContractModel):
     eligible_build_ids: tuple[PackageIdentifier, ...] = Field(min_length=1, max_length=100)
     versioning_behavior: VersioningBehavior = "pinned"
     continue_as_new_policy: ContinueAsNewPolicy = "inherit"
+    task_api_required: StrictBool = False
 
     @model_validator(mode="after")
     def validate_routing(self) -> PackageExecutionBinding:
@@ -230,3 +232,4 @@ class PackageRuntimeStartRequest(RuntimeStartRequest):
 
 class PackageActivityRequest(ActivityRequest):
     release_binding: PackageExecutionBinding
+    first_execution_run_id: PackageText | None = None

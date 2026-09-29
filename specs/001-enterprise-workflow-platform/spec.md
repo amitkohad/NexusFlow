@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-enterprise-workflow-platform`
 **Created**: 2026-09-26
-**Status**: Phase 4A local package/executor foundation implemented; Phase 1–4 compatibility retained
+**Status**: Phase 5 local human-task implementation; Phase 1–4A compatibility retained
 **Input**: Existing Temporal prototype and enterprise workflow platform requirements
 
 ## Problem Statement
@@ -11,7 +11,7 @@ NexusFlow started as a Temporal workflow interpreter with a hard-coded Activity 
 
 The accepted deployment unit is now a **business workflow package**: one immutable artifact/image containing the exact governed definition revision, Workflow code/runtime, all dependent executable Activity implementations, explicit registrations, and locked dependencies. A generic executor loads the installed, trusted package manifest; it never obtains executable code from a task or caller-supplied definition. Each package owns a scalable executor pool. The default pool registers both Workflow and Activity handlers; optional role-specific pools use the same image and Build ID when resource, permission, or workload needs justify separation. This target replaces the mandatory shared runtime and capability-service deployment split implemented in Phase 4.
 
-The shared API/registry, human-task persistence service, business database, and Temporal platform remain independently operated platform services. Packaging an Activity handler that calls one of those services does not package or duplicate that service's datastore. Phase 4A implements the local package/executor bridge before the remaining feature phases; its own [verification evidence](../../docs/development/phase-4a-verification.md) records 802 passing tests and isolated artifact execution. Existing Phase 1–4 completion records retain their historical scope. Durable human-task persistence, production images/controllers and cloud autoscaling remain later work.
+The shared API/registry, human-task persistence service, business database, and Temporal platform remain independently operated platform services. Packaging an Activity handler that calls one of those services does not package or duplicate that service's datastore. Phase 4A implemented the local package/executor bridge; its [verification evidence](../../docs/development/phase-4a-verification.md) records 802 passing tests and isolated artifact execution. Phase 5 adds the shared durable task API, package adapter, actor decisions, SLA and signal outbox; see [Phase 5 verification](../../docs/development/phase-5-verification.md). Existing Phase 1–4 completion records retain their historical scope. Production images/controllers, enterprise identity integration and cloud autoscaling remain later work.
 
 ## User Scenarios and Testing
 

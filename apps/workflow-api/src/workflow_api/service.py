@@ -379,6 +379,12 @@ class WorkflowService:
         record = await self.refresh(principal, workflow_id)
         if record.state != ExecutionState.WAITING_FOR_APPROVAL or record.run_id is None:
             raise ApiError(409, "workflow_not_waiting", "Workflow is not waiting for an approval")
+        if record.package_binding is not None and record.package_binding.task_api_required:
+            raise ApiError(
+                409,
+                "task_api_required",
+                "This approval must be decided through the governed human-task API",
+            )
         await self.backend.signal(
             workflow_id,
             record.run_id,

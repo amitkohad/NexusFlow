@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import importlib.util
+import json
 import os
 import shutil
 import socket
 from datetime import timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import RLock, Thread
+from typing import Any, cast
 from uuid import uuid4
 
 from contracts import ExecutorPool, PackageRuntimeStartRequest, RuntimeContext, WorkflowRelease
@@ -23,6 +28,77 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.testing import WorkflowEnvironment
 from workflow_executor import load_executor_package, run_executor
 from workflow_sdk.packages import resolve_binding
+
+
+class ReferenceTaskServer(ThreadingHTTPServer):
+    """An explicit external HTTP reference used only by isolated artifact tests."""
+
+    def __init__(self) -> None:
+        super().__init__(("127.0.0.1", 0), ReferenceTaskHandler)
+        self.tasks: dict[tuple[str, str, str, str], str] = {}
+        self.task_keys: dict[str, str] = {}
+        self.lock = RLock()
+
+
+class ReferenceTaskHandler(BaseHTTPRequestHandler):
+    def do_POST(self) -> None:
+        if (
+            self.path != "/api/v1/tasks"
+            or self.headers.get("Authorization") != "Bearer installed-test"
+        ):
+            self.send_error(403)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 1 or length > 64 * 1024:
+                raise ValueError("Invalid body size")
+            body: Any = json.loads(self.rfile.read(length))
+            if not isinstance(body, dict) or body.get("task_type") != "approval":
+                raise ValueError("Invalid task")
+            key = (
+                str(body["tenant"]),
+                str(body["business_domain"]),
+                str(body["application"]),
+                str(body["idempotency_key"]),
+            )
+            identity = json.dumps([body["workflow_id"], body["step_id"]], separators=(",", ":"))
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            self.send_error(422)
+            return
+        server = cast(ReferenceTaskServer, self.server)
+        with server.lock:
+            task_id = server.tasks.setdefault(
+                key, "HT-" + hashlib.sha256(identity.encode()).hexdigest()[:24]
+            )
+            server.task_keys[task_id] = key[3]
+        echoed = {
+            field: body[field]
+            for field in (
+                "tenant",
+                "business_domain",
+                "application",
+                "workflow_id",
+                "first_execution_run_id",
+                "step_id",
+                "definition_version",
+                "correlation_id",
+                "business_reference",
+                "idempotency_key",
+                "task_type",
+                "package_id",
+                "package_release_id",
+                "build_id",
+            )
+        }
+        content = json.dumps({"task_id": task_id, "durable": True, **echoed}).encode()
+        self.send_response(201)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
 
 
 def available_port() -> int:
@@ -76,6 +152,16 @@ async def verify(name: str, release_path: Path) -> None:
         activity_task_pollers=2,
         shutdown_grace_seconds=5,
     )
+    task_server: ReferenceTaskServer | None = None
+    task_thread: Thread | None = None
+    if name == "customer-adjustment":
+        task_server = ReferenceTaskServer()
+        task_thread = Thread(target=task_server.serve_forever, daemon=True)
+        task_thread.start()
+        os.environ["NEXUSFLOW_HUMAN_TASK_SERVICE_URL"] = (
+            f"http://127.0.0.1:{task_server.server_address[1]}"
+        )
+        os.environ["NEXUSFLOW_HUMAN_TASK_SERVICE_TOKEN"] = "installed-test"
     async with await WorkflowEnvironment.start_local(
         dev_server_existing_path=cli,
         dev_server_log_level="error",
@@ -142,9 +228,17 @@ async def verify(name: str, release_path: Path) -> None:
                     async with asyncio.timeout(20):
                         while (await handle.query("status"))["state"] != "WAITING_FOR_APPROVAL":
                             await asyncio.sleep(0.05)
+                    waiting = await handle.query("status")
+                    assert task_server is not None
+                    task_id = waiting["approval"]["task_id"]
+                    with task_server.lock:
+                        task_key = task_server.task_keys[task_id]
                     await handle.signal(
                         "approve",
                         {
+                            "task_id": task_id,
+                            "event_id": "installed-decision-" + uuid4().hex,
+                            "idempotency_key": task_key,
                             "approved": decision,
                             "approver": "installed-operator",
                             "comment": "artifact test",
@@ -188,6 +282,10 @@ async def verify(name: str, release_path: Path) -> None:
             for stop in stops:
                 stop.set()
             await asyncio.wait_for(asyncio.gather(*tasks), timeout=15)
+            if task_server is not None and task_thread is not None:
+                task_server.shutdown()
+                task_server.server_close()
+                task_thread.join(timeout=5)
 
 
 def main() -> None:

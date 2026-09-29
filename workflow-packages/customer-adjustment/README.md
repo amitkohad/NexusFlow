@@ -3,7 +3,11 @@
 This package includes the exact version 1.0 definition, trusted content manifest,
 locked runtime/executor dependencies and all named executable Activity handlers.
 It requires no external capability workers, API package or root distribution.
-The reference handlers use mock adapters; real enterprise services are later work.
+Notification and enterprise posting are reference adapters. Approval creation
+calls the shared durable human-task service from this package's Activity queue;
+configure `NEXUSFLOW_HUMAN_TASK_SERVICE_URL` and
+`NEXUSFLOW_HUMAN_TASK_SERVICE_TOKEN` (a `tasks:create` credential) on each
+Activity executor. Task persistence and operator actions remain in that service.
 
 Build complete artifacts from the repository root:
 
@@ -23,7 +27,7 @@ inside the release artifact:
 
 ```text
 uv venv .package-env
-uv pip install --python .package-env/Scripts/python.exe --no-index --find-links release/wheelhouse nexusflow-customer-adjustment-package==0.1.0
+uv pip install --python .package-env/Scripts/python.exe --no-index --find-links release/wheelhouse nexusflow-customer-adjustment-package==0.2.0
 Copy-Item workflow-packages/customer-adjustment/pools/mixed.json operator-pool.json
 .package-env/Scripts/python.exe -m workflow_executor --package customer-adjustment --pool operator-pool.json
 ```

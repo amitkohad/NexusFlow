@@ -212,6 +212,16 @@ Use the explicit `package` API profile for new release-bound starts. See
 [migration/rollback mapping](docs/operations/package-migration.md). Original
 legacy and governed workers remain available for their existing histories.
 
+Phase 5 adds a standalone [human-task service](apps/human-task-service/README.md)
+with scoped task creation, inbox, claim, approval/rejection, reassignment,
+delegation, escalation, expiry, audit and a durable Temporal signal outbox. The
+Customer Adjustment package 0.2.0 carries its task-creation Activity and resumes
+only from task-correlated decisions; its executor needs the task service URL and
+service credential. Human actors use a separate credential in local/test mode.
+See the [Phase 5 quickstart](specs/001-enterprise-workflow-platform/quickstart.md)
+and [verification](docs/development/phase-5-verification.md). The original
+package/runtime approval path remains for its existing histories.
+
 Phase 2 foundations are available as shared libraries: typed contracts,
 definition/schema validation, deterministic routing/template helpers, and explicit
 configuration/error models. Validate the existing sample with:
@@ -225,14 +235,12 @@ See [development tooling](docs/development/tooling.md),
 [foundation decisions](docs/adr/0001-foundational-contracts.md). The prototype
 worker retains its original execution path until the runtime extraction phase.
 
-1. Implement persistent human-task management and its policies (Phase 5).
-2. Extend the FastAPI control plane with later task, governance and operational policies.
-3. Add a human-task service and web inbox so users never need Temporal CLI.
-4. Replace the mock capability dispatcher with a plugin/adapter SDK for REST, gRPC, Kafka, files, databases, notifications, and enterprise APIs.
-5. Add OIDC/RBAC, secrets integration, encryption/data converters, observability, SLOs and chargeback/showback.
-6. Run workers on Kubernetes with separate task queues and autoscaling per workload class.
-7. Add worker versioning, safe rollout, process-definition versioning and migration tooling.
-8. Build an Alfresco migration factory: inventory -> classify -> convert -> regression-test -> dual-run -> cutover.
+1. Extend the FastAPI control plane with later governance and operational policies.
+2. Add a web inbox over the task API for end users.
+3. Replace remaining mock integrations with package-owned adapters for REST, gRPC, Kafka, files, databases, notifications and enterprise APIs.
+4. Add enterprise OIDC/RBAC, secrets integration, encryption/data converters, observability, SLOs and chargeback/showback.
+5. Deploy version-aware package executors on Kubernetes with measured autoscaling.
+6. Build an Alfresco migration factory: inventory -> classify -> convert -> regression-test -> dual-run -> cutover.
 
 ## Important production design principle
 

@@ -722,6 +722,11 @@
       "default": null,
       "title": "Dependency Lock Hash"
     },
+    "durable_human_tasks": {
+      "default": false,
+      "title": "Durable Human Tasks",
+      "type": "boolean"
+    },
     "package_id": {
       "maxLength": 128,
       "minLength": 1,

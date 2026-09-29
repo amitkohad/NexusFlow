@@ -55,6 +55,19 @@ from .domain import (
     WorkflowDefinition,
     WorkflowExecution,
 )
+from .human_tasks import (
+    CompleteTaskRequest,
+    CreateTaskRequest,
+    DelegateTaskRequest,
+    EscalateTaskRequest,
+    EscalationPolicy,
+    ExpireTaskRequest,
+    ReassignTaskRequest,
+    TaskDecisionRequest,
+    TaskMutationRequest,
+    TaskPage,
+    TaskResponse,
+)
 from .packages import (
     ActivityRegistration,
     ContinueAsNewPolicy,
@@ -94,6 +107,17 @@ from .runtime import (
 )
 
 __all__ = [
+    "CompleteTaskRequest",
+    "CreateTaskRequest",
+    "DelegateTaskRequest",
+    "EscalateTaskRequest",
+    "EscalationPolicy",
+    "ExpireTaskRequest",
+    "ReassignTaskRequest",
+    "TaskDecisionRequest",
+    "TaskMutationRequest",
+    "TaskPage",
+    "TaskResponse",
     "ActivityRegistration",
     "ContinueAsNewPolicy",
     "ExecutorPool",

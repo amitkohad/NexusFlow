@@ -107,6 +107,56 @@ def _approval_decision(payload: object) -> JsonObject | None:
     return {"approved": payload["approved"], "approver": actor, "comment": comment}
 
 
+def _durable_task_decision(payload: object) -> JsonObject | None:
+    decision = _approval_decision(payload)
+    if decision is None or not isinstance(payload, dict):
+        return None
+    task_id = payload.get("task_id")
+    event_id = payload.get("event_id")
+    idempotency_key = payload.get("idempotency_key")
+    evidence_reference = payload.get("evidence_reference")
+    if (
+        not isinstance(task_id, str)
+        or not task_id.strip()
+        or not isinstance(event_id, str)
+        or not event_id.strip()
+        or not isinstance(idempotency_key, str)
+        or not idempotency_key.strip()
+        or (evidence_reference is not None and not isinstance(evidence_reference, str))
+    ):
+        return None
+    return {
+        **decision,
+        "task_id": task_id,
+        "event_id": event_id,
+        "idempotency_key": idempotency_key,
+        "evidence_reference": evidence_reference,
+    }
+
+
+def _durable_task_expiration(payload: object) -> JsonObject | None:
+    if not isinstance(payload, dict):
+        return None
+    task_id = payload.get("task_id")
+    event_id = payload.get("event_id")
+    idempotency_key = payload.get("idempotency_key")
+    if (
+        not isinstance(task_id, str)
+        or not task_id.strip()
+        or not isinstance(event_id, str)
+        or not event_id.strip()
+        or not isinstance(idempotency_key, str)
+        or not idempotency_key.strip()
+    ):
+        return None
+    return {
+        "task_id": task_id,
+        "event_id": event_id,
+        "idempotency_key": idempotency_key,
+        "expired": True,
+    }
+
+
 class _PackageInterpreter:
     """No filesystem, network, configuration reads, or global capability lookup."""
 
@@ -121,6 +171,9 @@ class _PackageInterpreter:
         }
         self._approval: JsonObject | None = None
         self._approval_waiting = False
+        self._durable_task_id: str | None = None
+        self._active_task_key: str | None = None
+        self._pending_task_events: dict[str, JsonObject] = {}
         self._context: RuntimeContext | None = None
         self._request: JsonObject = {}
         self._variables: JsonObject = {}
@@ -154,11 +207,33 @@ class _PackageInterpreter:
 
     @workflow.signal(name="approve")
     def approve(self, payload: dict[str, Any]) -> None:
-        if not self._approval_waiting or self._approval is not None:
+        durable = _durable_task_decision(payload)
+        if durable is not None:
+            self._accept_task_event(durable)
+        elif self._approval_waiting and self._durable_task_id is None and self._approval is None:
+            # Old package histories recorded a synthetic task response. Preserve
+            # their signal command semantics during replay and pinned execution.
+            self._approval = _approval_decision(payload)
+
+    @workflow.signal(name="task_expired")
+    def task_expired(self, payload: dict[str, Any]) -> None:
+        expired = _durable_task_expiration(payload)
+        if expired is not None:
+            self._accept_task_event(expired)
+
+    def _accept_task_event(self, event: JsonObject) -> None:
+        if self._active_task_key is None or event["idempotency_key"] != self._active_task_key:
             return
-        decision = _approval_decision(payload)
-        if decision is not None:
-            self._approval = decision
+        task_id = str(event["task_id"])
+        if self._approval_waiting:
+            if self._durable_task_id == task_id and self._approval is None:
+                self._approval = event
+            return
+        # A person can finish the task after its create Activity committed, but
+        # before that Activity result lets the Workflow enter its wait. Buffer the
+        # first typed event so a successful outbox dispatch is never lost.
+        if task_id not in self._pending_task_events and len(self._pending_task_events) < 8:
+            self._pending_task_events[task_id] = event
 
     @workflow.query(name="status")
     def status(self) -> dict[str, Any]:
@@ -248,7 +323,10 @@ class _PackageInterpreter:
             self._status["current_step"] = None
             if cancelled or isinstance(exc, ActivityError):
                 raise
-            if isinstance(exc, ApplicationError) and exc.type == "PackageCompatibilityError":
+            if isinstance(exc, ApplicationError) and exc.type in {
+                "PackageCompatibilityError",
+                "TaskContractError",
+            }:
                 raise
             if isinstance(
                 exc, (DefinitionValidationError, ValidationError, SemanticsError, ValueError)
@@ -319,15 +397,28 @@ class _PackageInterpreter:
         assert self._context is not None
         assert self._binding is not None
         self._check_deployment()
+        first_execution_run_id = getattr(workflow.info(), "first_execution_run_id", self._run_id)
+        # A reused Workflow ID starts a new execution chain. Durable human tasks
+        # must never replay the previous chain's idempotency reservation, while
+        # historical package Activities retain their recorded request shape.
+        task_chain = (
+            first_execution_run_id
+            if self._binding.task_api_required and route.capability == "create_approval_task"
+            else self._workflow_id
+        )
+        idempotency_key = f"{task_chain}:{step_id}:{route.contract_version}"
+        if route.capability == "create_approval_task":
+            self._active_task_key = idempotency_key
         request = PackageActivityRequest(
             release_binding=self._binding.model_copy(deep=True),
             workflow_id=self._workflow_id,
             run_id=self._run_id,
+            first_execution_run_id=first_execution_run_id,
             step_id=step_id,
             capability=route.capability,
             contract_version=route.contract_version,
             context=self._context,
-            idempotency_key=f"{self._workflow_id}:{step_id}:{route.contract_version}",
+            idempotency_key=idempotency_key,
             input=deepcopy(input_document),
             request=deepcopy(self._request),
             variables=deepcopy(self._variables),
@@ -363,6 +454,9 @@ class _PackageInterpreter:
     async def _wait_for_approval(self, step_id: str, step: ApprovalStep) -> str | None:
         self._approval = None
         self._approval_waiting = False
+        self._durable_task_id = None
+        self._active_task_key = None
+        self._pending_task_events.clear()
         task = await self._invoke(
             step_id,
             self._routes["create_approval_task"],
@@ -373,6 +467,13 @@ class _PackageInterpreter:
         task_id = task.get("task_id")
         if not isinstance(task_id, str) or not task_id.strip():
             raise ValueError("Approval Activity must return a task reference")
+        assert self._binding is not None
+        if self._binding.task_api_required and task.get("durable") is not True:
+            raise ApplicationError(
+                "Approval Activity did not create a durable human task",
+                type="TaskContractError",
+                non_retryable=True,
+            )
         self._results[step_id] = deepcopy(task)
         self._status.update(
             state="WAITING_FOR_APPROVAL",
@@ -382,11 +483,22 @@ class _PackageInterpreter:
                 "task_id": task_id,
             },
         )
+        if task.get("durable") is True:
+            self._durable_task_id = task_id
+            self._approval = self._pending_task_events.pop(task_id, None)
         self._approval_waiting = True
         try:
-            await workflow.wait_condition(
-                lambda: self._approval is not None, timeout=timedelta(seconds=step.timeout_seconds)
-            )
+            if self._durable_task_id is not None:
+                # The task service owns the deadline and orders a committed
+                # decision against expiry. Its outbox may deliver after an
+                # outage, so an independent Workflow timer could lose a valid
+                # decision already committed by the task service.
+                await workflow.wait_condition(lambda: self._approval is not None)
+            else:
+                await workflow.wait_condition(
+                    lambda: self._approval is not None,
+                    timeout=timedelta(seconds=step.timeout_seconds),
+                )
         except asyncio.TimeoutError:
             self._results[step_id] = {**task, "status": "TIMED_OUT"}
             self._status["state"] = "RUNNING"
@@ -394,8 +506,16 @@ class _PackageInterpreter:
             return transition_target(step.model_dump(mode="python"), timed_out=True)
         finally:
             self._approval_waiting = False
+            self._durable_task_id = None
+            self._active_task_key = None
+            self._pending_task_events.clear()
             self._status.pop("approval", None)
         assert self._approval is not None
+        if self._approval.get("expired") is True:
+            self._results[step_id] = {**task, "status": "TIMED_OUT", **self._approval}
+            self._status["state"] = "RUNNING"
+            self._record(step_id, "TIMED_OUT", "task expired")
+            return transition_target(step.model_dump(mode="python"), timed_out=True)
         self._results[step_id] = {**task, **self._approval}
         self._status["state"] = "RUNNING"
         approved = self._approval["approved"] is True

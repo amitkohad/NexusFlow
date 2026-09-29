@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import importlib
 from collections.abc import Callable
 from typing import Any
 
@@ -16,16 +18,37 @@ from tests.package_fixtures import source_package, start_request
 pytestmark = pytest.mark.contract
 
 
+@pytest.fixture(autouse=True)
+def configured_reference_task_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exercise the named handler against an explicit external task reference."""
+
+    def create_task(url: str, token: str, body: dict[str, Any]) -> str:
+        assert url == "http://127.0.0.1:31999/api/v1/tasks"
+        assert token == "contract-service-token"
+        assert body["task_type"] == "approval"
+        identity = f"{body['workflow_id']}:{body['step_id']}:{body['idempotency_key']}"
+        return "HT-" + hashlib.sha256(identity.encode()).hexdigest()[:24]
+
+    monkeypatch.setenv("NEXUSFLOW_HUMAN_TASK_SERVICE_URL", "http://127.0.0.1:31999")
+    monkeypatch.setenv("NEXUSFLOW_HUMAN_TASK_SERVICE_TOKEN", "contract-service-token")
+    handler_module = importlib.import_module("nexusflow_activities.human_tasks")
+    monkeypatch.setattr(handler_module, "_post_task", create_task)
+
+
 def payload(capability: str, **changes: Any) -> PackageActivityRequest:
     request = start_request(source_package())
     values = {
         "workflow_id": "workflow-1",
         "run_id": "run-1",
+        "first_execution_run_id": "run-1",
         "step_id": "step-1",
         "capability": capability,
         "context": request.context,
         "release_binding": request.release_binding,
         "idempotency_key": "workflow-1:step-1:1.0",
+        "input": {"assignee_group": "approvers", "timeout_seconds": 300}
+        if capability == "create_approval_task"
+        else {},
         "request": {"amount": 1000},
     }
     values.update(changes)
