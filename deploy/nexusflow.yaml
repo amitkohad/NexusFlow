@@ -81,7 +81,7 @@ spec:
       - name: temporal-client-tls
         secret: {secretName: temporal-ui-frontend-mtls}
       - name: server-tls
-        secret: {secretName: temporal-ui-server-tls}
+        secret: {secretName: nexusflow-portal-tls}
 ---
 apiVersion: v1
 kind: Service
@@ -90,11 +90,12 @@ metadata:
   namespace: nexusflow-staging
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-resource-group: rg-nexusflow
-    service.beta.kubernetes.io/azure-pip-name: pip-nexusflow-stg-ci-ui
+    service.beta.kubernetes.io/azure-pip-name: pip-nexusflow-portal-stg-ci
+    service.beta.kubernetes.io/azure-dns-label-name: nexusflow-stg-ci-7c5841
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
-  loadBalancerIP: 20.219.132.86
+  loadBalancerIP: 20.219.28.31
   selector: {app: nexusflow-portal}
   ports:
   - {name: https, port: 9443, targetPort: 8443}
