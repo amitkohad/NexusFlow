@@ -93,6 +93,7 @@ metadata:
     service.beta.kubernetes.io/azure-pip-name: pip-nexusflow-stg-ci-ui
 spec:
   type: LoadBalancer
+  externalTrafficPolicy: Local
   loadBalancerIP: 20.219.132.86
   selector: {app: nexusflow-portal}
   ports:
