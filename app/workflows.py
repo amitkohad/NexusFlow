@@ -49,6 +49,8 @@ class LightweightProcess:
             {
                 "process_id": process_id,
                 "workflow_name": spec.get("workflow_name", "unnamed-process"),
+                "request": spec.get("request", {}),
+                "requested_by": spec.get("variables", {}).get("requested_by", "unknown"),
                 "state": "RUNNING",
             }
         )

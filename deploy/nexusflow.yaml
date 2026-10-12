@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nexusflow
+  namespace: nexusflow-staging
+  annotations:
+    azure.workload.identity/client-id: ${WORKLOAD_CLIENT_ID}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexusflow-worker
+  namespace: nexusflow-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: nexusflow-worker}
+  template:
+    metadata:
+      labels: {app: nexusflow-worker, azure.workload.identity/use: "true"}
+    spec:
+      serviceAccountName: nexusflow
+      containers:
+      - name: worker
+        image: ${IMAGE}
+        args: ["python", "-m", "app.worker"]
+        envFrom: [{secretRef: {name: nexusflow-config}}]
+        resources:
+          requests: {cpu: 50m, memory: 96Mi}
+          limits: {cpu: 300m, memory: 256Mi}
+        volumeMounts:
+        - {name: temporal-client-tls, mountPath: /var/run/temporal-tls, readOnly: true}
+      volumes:
+      - name: temporal-client-tls
+        secret: {secretName: temporal-ui-frontend-mtls}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexusflow-portal
+  namespace: nexusflow-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: nexusflow-portal}
+  template:
+    metadata:
+      labels: {app: nexusflow-portal, azure.workload.identity/use: "true"}
+    spec:
+      serviceAccountName: nexusflow
+      containers:
+      - name: portal
+        image: ${IMAGE}
+        args: ["uvicorn", "app.portal:app", "--host", "0.0.0.0", "--port", "8443", "--ssl-certfile", "/var/run/server-tls/tls.crt", "--ssl-keyfile", "/var/run/server-tls/tls.key"]
+        ports: [{name: https, containerPort: 8443}]
+        envFrom: [{secretRef: {name: nexusflow-config}}]
+        readinessProbe: {httpGet: {path: /healthz, port: 8443, scheme: HTTPS}, initialDelaySeconds: 5}
+        resources:
+          requests: {cpu: 50m, memory: 96Mi}
+          limits: {cpu: 300m, memory: 256Mi}
+        volumeMounts:
+        - {name: temporal-client-tls, mountPath: /var/run/temporal-tls, readOnly: true}
+        - {name: server-tls, mountPath: /var/run/server-tls, readOnly: true}
+      volumes:
+      - name: temporal-client-tls
+        secret: {secretName: temporal-ui-frontend-mtls}
+      - name: server-tls
+        secret: {secretName: temporal-ui-server-tls}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexusflow-portal-public
+  namespace: nexusflow-staging
+  annotations:
+    service.beta.kubernetes.io/azure-pip-name: pip-nexusflow-stg-ci-ui
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 20.219.132.86
+  selector: {app: nexusflow-portal}
+  ports:
+  - {name: https, port: 9443, targetPort: 8443}
