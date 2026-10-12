@@ -17,7 +17,7 @@ spec:
     matchLabels: {app: nexusflow-worker}
   template:
     metadata:
-      labels: {app: nexusflow-worker, azure.workload.identity/use: "true"}
+      labels: {app: nexusflow-worker, azure.workload.identity/use: "true", nexusflow.io/temporal-client: approved}
     spec:
       serviceAccountName: nexusflow
       securityContext:
@@ -53,7 +53,7 @@ spec:
     matchLabels: {app: nexusflow-portal}
   template:
     metadata:
-      labels: {app: nexusflow-portal, azure.workload.identity/use: "true"}
+      labels: {app: nexusflow-portal, azure.workload.identity/use: "true", nexusflow.io/temporal-client: approved}
     spec:
       serviceAccountName: nexusflow
       securityContext:
@@ -99,3 +99,31 @@ spec:
   selector: {app: nexusflow-portal}
   ports:
   - {name: https, port: 9443, targetPort: 8443}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nexusflow-app
+  namespace: nexusflow-staging
+spec:
+  podSelector:
+    matchExpressions:
+    - {key: app, operator: In, values: [nexusflow-worker, nexusflow-portal]}
+  policyTypes: [Ingress, Egress]
+  ingress:
+  - from: [{ipBlock: {cidr: 0.0.0.0/0}}]
+    ports: [{protocol: TCP, port: 8443}]
+  egress:
+  - to:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      podSelector: {matchLabels: {k8s-app: kube-dns}}
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+  - to:
+    - podSelector:
+        matchLabels: {app.kubernetes.io/name: temporal, app.kubernetes.io/instance: temporal, app.kubernetes.io/component: frontend}
+    ports: [{protocol: TCP, port: 7233}]
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+    ports: [{protocol: TCP, port: 443}]
