@@ -20,6 +20,11 @@ spec:
       labels: {app: nexusflow-worker, azure.workload.identity/use: "true"}
     spec:
       serviceAccountName: nexusflow
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
       containers:
       - name: worker
         image: ${IMAGE}
@@ -28,6 +33,9 @@ spec:
         resources:
           requests: {cpu: 50m, memory: 96Mi}
           limits: {cpu: 300m, memory: 256Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
         volumeMounts:
         - {name: temporal-client-tls, mountPath: /var/run/temporal-tls, readOnly: true}
       volumes:
@@ -48,6 +56,11 @@ spec:
       labels: {app: nexusflow-portal, azure.workload.identity/use: "true"}
     spec:
       serviceAccountName: nexusflow
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
       containers:
       - name: portal
         image: ${IMAGE}
@@ -58,6 +71,9 @@ spec:
         resources:
           requests: {cpu: 50m, memory: 96Mi}
           limits: {cpu: 300m, memory: 256Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
         volumeMounts:
         - {name: temporal-client-tls, mountPath: /var/run/temporal-tls, readOnly: true}
         - {name: server-tls, mountPath: /var/run/server-tls, readOnly: true}
@@ -73,6 +89,7 @@ metadata:
   name: nexusflow-portal-public
   namespace: nexusflow-staging
   annotations:
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: rg-nexusflow
     service.beta.kubernetes.io/azure-pip-name: pip-nexusflow-stg-ci-ui
 spec:
   type: LoadBalancer
