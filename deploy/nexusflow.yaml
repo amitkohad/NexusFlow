@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nexusflow
+  namespace: nexusflow-staging
+  annotations:
+    azure.workload.identity/client-id: ${WORKLOAD_CLIENT_ID}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexusflow-worker
+  namespace: nexusflow-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: nexusflow-worker}
+  template:
+    metadata:
+      labels: {app: nexusflow-worker, azure.workload.identity/use: "true", nexusflow.io/temporal-client: approved}
+    spec:
+      serviceAccountName: nexusflow
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: worker
+        image: ${IMAGE}
+        args: ["python", "-m", "app.worker"]
+        envFrom: [{secretRef: {name: nexusflow-config}}]
+        resources:
+          requests: {cpu: 50m, memory: 96Mi}
+          limits: {cpu: 300m, memory: 256Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+        volumeMounts:
+        - {name: temporal-client-tls, mountPath: /var/run/temporal-tls, readOnly: true}
+      volumes:
+      - name: temporal-client-tls
+        secret: {secretName: temporal-ui-frontend-mtls}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexusflow-portal
+  namespace: nexusflow-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: nexusflow-portal}
+  template:
+    metadata:
+      labels: {app: nexusflow-portal, azure.workload.identity/use: "true", nexusflow.io/temporal-client: approved}
+    spec:
+      serviceAccountName: nexusflow
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: portal
+        image: ${IMAGE}
+        args: ["uvicorn", "app.portal:app", "--host", "0.0.0.0", "--port", "8443", "--ssl-certfile", "/var/run/server-tls/tls.crt", "--ssl-keyfile", "/var/run/server-tls/tls.key"]
+        ports: [{name: https, containerPort: 8443}]
+        envFrom: [{secretRef: {name: nexusflow-config}}]
+        readinessProbe: {httpGet: {path: /healthz, port: 8443, scheme: HTTPS}, initialDelaySeconds: 5}
+        resources:
+          requests: {cpu: 50m, memory: 96Mi}
+          limits: {cpu: 300m, memory: 256Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+        volumeMounts:
+        - {name: temporal-client-tls, mountPath: /var/run/temporal-tls, readOnly: true}
+        - {name: server-tls, mountPath: /var/run/server-tls, readOnly: true}
+      volumes:
+      - name: temporal-client-tls
+        secret: {secretName: temporal-ui-frontend-mtls}
+      - name: server-tls
+        secret: {secretName: nexusflow-portal-tls}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexusflow-portal-public
+  namespace: nexusflow-staging
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: rg-nexusflow
+    service.beta.kubernetes.io/azure-pip-name: pip-nexusflow-portal-stg-ci
+    service.beta.kubernetes.io/azure-dns-label-name: nexusflow-stg-ci-7c5841
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  loadBalancerIP: 20.219.28.31
+  selector: {app: nexusflow-portal}
+  ports:
+  - {name: https, port: 9443, targetPort: 8443}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nexusflow-app
+  namespace: nexusflow-staging
+spec:
+  podSelector:
+    matchExpressions:
+    - {key: app, operator: In, values: [nexusflow-worker, nexusflow-portal]}
+  policyTypes: [Ingress, Egress]
+  ingress:
+  - from: [{ipBlock: {cidr: 0.0.0.0/0}}]
+    ports: [{protocol: TCP, port: 8443}]
+  egress:
+  - to:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      podSelector: {matchLabels: {k8s-app: kube-dns}}
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+  - to:
+    - podSelector:
+        matchLabels: {app.kubernetes.io/name: temporal, app.kubernetes.io/instance: temporal, app.kubernetes.io/component: frontend}
+    ports: [{protocol: TCP, port: 7233}]
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+    ports: [{protocol: TCP, port: 443}]
